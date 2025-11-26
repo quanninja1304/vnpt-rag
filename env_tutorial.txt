@@ -1,0 +1,10 @@
+b1:
+conda create -n vnpt python=3.11 -y
+conda activate vnpt
+pip install ipykernel notebook
+
+b2:
+python -m ipykernel install --user --name vnpt --display-name "Python (vnpt)"
+
+b3:
+code .

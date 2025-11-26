@@ -1,0 +1,9 @@
+wikiextractor
+beautifulsoup4 
+lxml
+pandas
+fake-useragent 
+tqdm 
+mwxml
+pyarrow 
+fastparquet
