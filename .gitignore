@@ -8,3 +8,5 @@
 output/
 data/
 datasets/
+logs/
+cache/
