@@ -26,8 +26,9 @@ class Config:
     CHUNKING_OUTPUT_FILE = OUTPUT_DIR / "wiki_vn_chunks.parquet"
 
     # Indexing files
+    # input cuar indexing laf output cuar chunking
     INDEXING_INPUT_FILE = CHUNKING_OUTPUT_FILE
-    
+
     # Crawl settings
     MAX_LEVEL = 2
     MAX_WORKERS = 15
