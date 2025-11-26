@@ -25,6 +25,9 @@ class Config:
     CHUNKING_INPUT_FILE = CRAWL_OUTPUT_PARQUET 
     CHUNKING_OUTPUT_FILE = OUTPUT_DIR / "wiki_vn_chunks.parquet"
 
+    # Indexing files
+    INDEXING_INPUT_FILE = CHUNKING_OUTPUT_FILE
+    
     # Crawl settings
     MAX_LEVEL = 2
     MAX_WORKERS = 15
@@ -49,6 +52,8 @@ class Config:
     USE_QDRANT_CLOUD = os.getenv("USE_CLOUD", "False").lower() == "true"
     QDRANT_URL = os.getenv("QDRANT_URL", "http://localhost:6333")
     QDRANT_API_KEY = os.getenv("QDRANT_API_KEY")
+
+    SPARSE_AVAILABLE=True
 
     # Export formats
     EXPORT_CSV = True
