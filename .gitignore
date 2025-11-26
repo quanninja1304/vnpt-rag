@@ -1,0 +1,10 @@
+*.parquet
+*.jsonl
+*.json
+*.csv
+*.pkl
+*.pt
+*.cache
+output/
+data/
+datasets/
