@@ -101,3 +101,4 @@ Dockerfile
 
 ssh -T git@github.com
 ssh -T git@github.com.pub
+logs/
