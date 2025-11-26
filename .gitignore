@@ -99,6 +99,4 @@ Thumbs.db
 docker-compose.yml
 Dockerfile
 
-ssh -T git@github.com
-ssh -T git@github.com.pub
 logs/

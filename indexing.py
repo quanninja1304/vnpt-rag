@@ -10,29 +10,7 @@ from tqdm import tqdm
 import torch
 import os
 import uuid
-
-class Config:
-    USE_QDRANT_CLOUD = True
-    QDRANT_URL = "https://70247b74-893b-48d1-9361-5e0f0535c1a0.us-east4-0.gcp.cloud.qdrant.io:6333" 
-    QDRANT_API_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhY2Nlc3MiOiJtIn0.SC73sycYRM4ETxJRtIGMbRHiWiQmH8SmJri0lsUwhT4"
-    
-    # --- CẤU HÌNH QDRANT LOCAL ---
-    LOCAL_URL = "http://localhost:6333"
-
-    # --- SETTINGS ---
-    INPUT_FILE = "output/wiki_vn_chunks_optimized.parquet"
-    COLLECTION_NAME = "vnpt_hackathon_rag"
-
-    # Batch size lớn hơn nếu có GPU xịn (3090/4090 để 256 ok)
-    BATCH_SIZE = 128
-    
-    # official model
-    MODEL_PATH = "vnptai_hackathon_embedding"
-    # simulator model
-    DUMMY_MODEL_NAME = "keepitreal/vietnamese-sbert"
-
-    # Force Recreate: Luôn xóa cũ tạo mới để tránh dữ liệu rác (Khuyên dùng True)
-    FORCE_RECREATE = True
+from config import Config
 
 def generate_uuid5(unique_string):
     """Tạo UUID cố định dựa trên chuỗi input (Deterministic)"""

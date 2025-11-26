@@ -1,33 +1,10 @@
-"""
-Vietnamese Wikipedia Chunking Processor (Final Optimized Version)
-===============================================================
-Features:
-1. Aggressive Cleaning: Cắt bỏ hoàn toàn phần Footer (Tham khảo, Xem thêm...) để tránh nhiễu.
-2. Line Merging: Gộp các tiêu đề cô lập (orphan headers) vào nội dung chính.
-3. Quality Filtering: Loại bỏ các chunk vô nghĩa, thiếu cấu trúc câu.
-4. Context Injection: Gắn tiêu đề bài viết vào từng chunk.
-"""
-
 import pandas as pd
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from tqdm import tqdm
 import re
 import os
 from pathlib import Path
-
-# ===========================
-# 1. SETTINGS
-# ===========================
-class Config:
-    # Đường dẫn file Input (Kết quả từ bước Crawl)
-    INPUT_FILE = Path("output/final_wikipedia_vietnam_full.parquet") 
-    
-    # Đường dẫn file Output (Kết quả sau khi Chunking)
-    OUTPUT_FILE = Path("output/final_wikipedia_vietnam_chunks.parquet")
-    
-    # Cấu hình Chunking
-    CHUNK_SIZE = 800   # Ký tự (~300-400 từ, an toàn cho model 512 token)
-    CHUNK_OVERLAP = 150 # Giữ ngữ cảnh nối tiếp giữa các đoạn
+from config import Config
 
 # ===========================
 # 2. CLEAN TEXT (CORE LOGIC)
@@ -86,16 +63,16 @@ def clean_wiki_text(text: str) -> str:
 # ===========================
 def process_chunking():
     # --- A. LOAD DỮ LIỆU ---
-    print(f"File input: {Config.INPUT_FILE}")
-    if not Config.INPUT_FILE.exists():
-        print(f"Lỗi: Không tìm thấy file {Config.INPUT_FILE}")
+    print(f"File input: {Config.CHUNKING_INPUT_FILE}")
+    if not Config.CHUNKING_INPUT_FILE.exists():
+        print(f"Lỗi: Không tìm thấy file {Config.CHUNKING_INPUT_FILE}")
         return
 
     try:
-        if Config.INPUT_FILE.suffix == '.parquet':
-            df = pd.read_parquet(Config.INPUT_FILE)
+        if Config.CHUNKING_INPUT_FILE.suffix == '.parquet':
+            df = pd.read_parquet(Config.CHUNKING_INPUT_FILE)
         else:
-            df = pd.read_csv(Config.INPUT_FILE)
+            df = pd.read_csv(Config.CHUNKING_INPUT_FILE)
     except Exception as e:
         print(f"Lỗi đọc file: {e}")
         return
@@ -105,8 +82,8 @@ def process_chunking():
     # --- B. KHỞI TẠO SPLITTER ---
     # Ưu tiên cắt theo đoạn văn (\n\n) trước, sau đó đến câu (. )
     splitter = RecursiveCharacterTextSplitter(
-        chunk_size=800,
-        chunk_overlap=150,
+        chunk_size=Config.CHUNK_SIZE,
+        chunk_overlap=Config.CHUNK_OVERLAP,
         separators=[
         "\n\n",      # Ưu tiên 1: Ngắt đoạn
         "\n",        # Ưu tiên 2: Xuống dòng
@@ -202,10 +179,10 @@ def process_chunking():
     print(f"   - Tỷ lệ  : {len(result_df)/len(df):.1f} chunks/bài")
     
     # Tạo thư mục output
-    os.makedirs(Config.OUTPUT_FILE.parent, exist_ok=True)
+    os.makedirs(Config.CHUNKING_OUTPUT_FILE.parent, exist_ok=True)
     
-    result_df.to_parquet(Config.OUTPUT_FILE, index=False, compression='snappy')
-    print(f"File đã lưu tại: {Config.OUTPUT_FILE}")
+    result_df.to_parquet(Config.CHUNKING_OUTPUT_FILE, index=False, compression='snappy')
+    print(f"File đã lưu tại: {Config.CHUNKING_OUTPUT_FILE}")
     
     # --- G. KIỂM TRA MẪU (SANITY CHECK) ---
     print("\n" + "="*60)
