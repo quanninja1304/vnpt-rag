@@ -1,12 +1,100 @@
-*.parquet
-*.jsonl
-*.json
-*.csv
-*.pkl
-*.pt
-*.cache
-output/
-data/
-datasets/
-logs/
+# =========================
+# PYTHON & VIRTUAL ENV
+# =========================
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.venv/
+ENV/
+env.bak/
+venv.bak/
+pip-log.txt
+pip-delete-this-directory.txt
+.pytest_cache/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.log
+.tox/
+.coverage
+coverage.xml
+htmlcov/
+.build/
+dist/
+*.egg-info/
+.eggs/
+*.egg
+
+# =========================
+# DATA / OUTPUT / CACHE / LOGS
+# =========================
+# Cache từ crawler
 cache/
+*.cache.json
+
+# Logs crawler
+logs/
+*.log
+
+# Output data (parquet, csv, json)
+output/
+*.parquet
+*.csv
+*.json
+!category_tree_full.json    # nếu muốn giữ cái này thì để lại, còn lại ignore hết
+
+# Model embedding (nếu có folder model)
+models/
+vnptai_hackathon_embedding/
+*.bin
+*.pt
+*.pth
+*.safetensors
+*.onnx
+
+# =========================
+# JUPYTER / IPYTHON
+# =========================
+.ipynb_checkpoints/
+*.ipynb_checkpoints
+
+# =========================
+# IDE / EDITOR
+# =========================
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+.DS_Store
+Thumbs.db
+
+# =========================
+# OS / TEMP
+# =========================
+.DS_Store
+*.tmp
+*.bak
+*.swp
+*~
+
+# =========================
+# ENVIRONMENT VARIABLES
+# =========================
+.env
+.env.local
+.env.*.local
+
+# =========================
+# QDRANT / DOCKER
+# =========================
+.qdrant/
+docker-compose.yml
+Dockerfile
