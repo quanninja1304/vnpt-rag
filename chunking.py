@@ -1,209 +1,136 @@
 import pandas as pd
 from langchain_text_splitters import RecursiveCharacterTextSplitter
+from transformers import AutoTokenizer
 from tqdm import tqdm
 import re
-import os
 import json
-from pathlib import Path
+import os
 from config import Config
 
-# ===========================
-# 1. STATE MANAGEMENT (NEW)
-# ===========================
-def load_processed_state():
-    """Đọc danh sách các bài đã chunk trước đó"""
-    if Config.CHUNKING_STATE_FILE.exists():
-        with open(Config.CHUNKING_STATE_FILE, 'r', encoding='utf-8') as f:
-            return set(json.load(f))
-    return set()
+# --- 1. SETUP TOKENIZER ---
+print("⏳ Loading Tokenizer...")
+try:
+    tokenizer = AutoTokenizer.from_pretrained(Config.TOKENIZER_NAME)
+    def count_tokens(text):
+        return len(tokenizer.encode(text))
+    print("✅ Tokenizer loaded successfully.")
+except Exception as e:
+    print(f"⚠️ Warning: Tokenizer error ({e}). Using Vietnamese-optimized fallback.")
+    def count_tokens(text):
+        # Fallback: Đếm từ (split space) * 1.3
+        if not text: return 0
+        return int(len(text.split()) * 1.3)
 
-def save_processed_state(processed_titles):
-    """Lưu lại danh sách các bài đã chunk"""
-    with open(Config.CHUNKING_STATE_FILE, 'w', encoding='utf-8') as f:
-        json.dump(list(processed_titles), f, ensure_ascii=False)
-
-# ===========================
-# 2. CLEAN TEXT (CORE LOGIC)
-# ===========================
-def clean_wiki_text(text: str) -> str:
-    """
-    Làm sạch văn bản Wikipedia (Fix triệt để lỗi chunk cuối bị dính footer)
-    """
-    if not isinstance(text, str) or not text: return ""
+# --- 2. CLEAN TEXT ---
+def clean_wiki_text(text):
+    if not text: return ""
     
-    # --- 1. CẮT BỎ FOOTER (Logic dòng đơn) ---
-    # Thay vì tìm regex phức tạp, ta duyệt từng dòng.
-    # Nếu gặp dòng nào ngắn (< 50 ký tự) mà chứa từ khóa dừng -> CẮT HẾT từ đó về sau.
-    
-    stop_phrases = [
-        'tham khảo', 'thao khảo', 'liên kết ngoài', 'chú thích', 'xem thêm',
-        'tài liệu tham khảo', 'đọc thêm', 'nguồn', 'ghi chú'
-    ]
-    
+    # Cắt footer
+    stop_phrases = ['tham khảo', 'liên kết ngoài', 'chú thích', 'đọc thêm']
     lines = text.split('\n')
     cut_index = len(lines)
-    
     for i, line in enumerate(lines):
-        # Chuẩn hóa dòng để kiểm tra
         line_clean = line.strip().lower()
-        
-        # Bỏ decorators
-        line_clean = re.sub(r'[=:\-\.]', '', line_clean).strip()
-        
-        # Nếu dòng ngắn (là tiêu đề) và khớp từ khóa dừng
-        if len(line_clean) < 40 and line_clean in stop_phrases:
+        if len(line_clean) < 40 and any(p == line_clean.strip('.:-=') for p in stop_phrases):
             cut_index = i
             break
-            
-    # Cắt bỏ phần rác
     text = '\n'.join(lines[:cut_index])
-
-    # --- 2. XÓA RÁC ARTIFACTS ---
-    text = re.sub(r'\[\d+\]', '', text)
-    text = re.sub(r'\[[a-zà-ỹ\s]+\]', '', text, flags=re.IGNORECASE)
-    text = re.sub(r'\[\[.*?\]\]', '', text)
     
-    # --- 3. GỘP DÒNG TIÊU ĐỀ (Fix lỗi cụt lủn) ---
-    # Biến các dòng tiêu đề cô lập thành câu để dính vào đoạn sau
-    text = text.replace('\r\n', '\n')
-    # Regex: Tìm dấu xuống dòng đơn (\n) không đi kèm \n khác
-    text = re.sub(r'(?<!\n)\n(?!\n)', '. ', text)
-    text = re.sub(r'\.\.', '.', text) # Sửa lỗi 2 dấu chấm
-    text = re.sub(r'\. \.', '.', text)
-    text = re.sub(r' +', ' ', text) # Xóa khoảng trắng thừa
-    
-    return text.strip()
+    # Clean artifacts & format
+    text = re.sub(r'\[\d+\]', '', text) # Remove citation [1]
+    text = re.sub(r'(?<!\n)\n(?!\n)', '. ', text) # Fix broken lines
+    text = re.sub(r'\s+', ' ', text).strip()
+    return text
 
-# ===========================
-# 3. CHUNKING PROCESS
-# ===========================
+# --- 3. MAIN CHUNKING ---
 def process_chunking():
-    # --- A. LOAD DỮ LIỆU ---
-    print(f"File input: {Config.CHUNKING_INPUT_FILE}")
-    if not Config.CHUNKING_INPUT_FILE.exists():
-        print(f"Lỗi: Không tìm thấy file {Config.CHUNKING_INPUT_FILE}")
+    # Load Data
+    if not Config.CRAWL_OUTPUT_PARQUET.exists():
+        print(f"❌ Missing file: {Config.CRAWL_OUTPUT_PARQUET}")
         return
-
-    try:
-        if Config.CHUNKING_INPUT_FILE.suffix == '.parquet':
-            df = pd.read_parquet(Config.CHUNKING_INPUT_FILE)
-        else:
-            df = pd.read_csv(Config.CHUNKING_INPUT_FILE)
-    except Exception as e:
-        print(f"Lỗi đọc file: {e}")
-        return
-        
-    print(f"Số lượng bài viết gốc: {len(df)}")
     
-    # --- LOGIC INCREMENTAL: LỌC BÀI MỚI ---
-    processed_titles = load_processed_state()
-    print(f"📦 Tổng bài viết trong kho: {len(df)}")
-    print(f"🔄 Đã xử lý trước đó: {len(processed_titles)}")
+    df = pd.read_parquet(Config.CRAWL_OUTPUT_PARQUET)
     
-    # Lọc ra các bài chưa có trong state
+    # Load State (Incremental check)
+    processed_titles = set()
+    if Config.CHUNKING_STATE_FILE.exists():
+        with open(Config.CHUNKING_STATE_FILE, 'r', encoding='utf-8') as f:
+            processed_titles = set(json.load(f))
+            
     df_new = df[~df['title'].isin(processed_titles)]
+    print(f"📦 Total Articles: {len(df)} | 🔄 New to Process: {len(df_new)}")
     
     if len(df_new) == 0:
-        print("✅ Không có bài viết mới. Pipeline nghỉ ngơi!")
-        # Xóa file delta cũ để tránh Indexing nạp lại thừa
-        if Config.LATEST_CHUNKS_FILE.exists():
-            os.remove(Config.LATEST_CHUNKS_FILE)
+        print("✅ No new articles.")
         return
 
-    print(f"⚡ Phát hiện {len(df_new)} bài viết mới. Bắt đầu chunking...")
-    
+    # Splitter config
     splitter = RecursiveCharacterTextSplitter(
-        chunk_size=Config.CHUNK_SIZE,
-        chunk_overlap=Config.CHUNK_OVERLAP,
-        separators=["\n\n", "\n", ". ", ".", "!", "?", ";", " ", ""],
-        length_function=len,
-        is_separator_regex=False
+        chunk_size=Config.CHUNK_SIZE_TOKENS,
+        chunk_overlap=Config.CHUNK_OVERLAP_TOKENS,
+        length_function=count_tokens,
+        separators=["\n\n", "\n", ". ", ".", ";", " ", ""]
     )
-    
+
     new_chunks = []
     
-    # --- VÒNG LẶP XỬ LÝ (Chỉ chạy trên df_new) ---
     for idx, row in tqdm(df_new.iterrows(), total=len(df_new)):
-        original_text = row.get('text', '')
-        title = row.get('title', 'Không tiêu đề')
+        text = clean_wiki_text(row.get('text', ''))
+        title = row.get('title', '')
         url = row.get('url', '')
-        categories = row.get('categories', [])
-        cat_str = str(categories) if categories else ""
+        
+        # Lấy category đầu tiên làm metadata
+        cats = row.get('categories', [])
+        cat_str = cats[0] if isinstance(cats, list) and cats else "Tổng hợp"
+        cat_str = cat_str.replace('_', ' ')
 
-        # Cleaning
-        clean_text = clean_wiki_text(original_text)
-        if len(clean_text) < 50: 
-            processed_titles.add(title) # Đánh dấu đã xử lý (dù là rác)
+        # Filter bài quá ngắn
+        if len(text) < 50: 
+            processed_titles.add(title)
             continue
 
-        # Chunking
-        chunks = splitter.create_documents([clean_text])
+        chunks = splitter.create_documents([text])
         
         for i, chunk in enumerate(chunks):
-            content = re.sub(r'^[.,;\s]+', '', chunk.page_content).strip()
+            content = chunk.page_content.strip()
             
-            # --- FILTERS ---
-            if len(content) < 60: continue
-            if content.endswith(':'): continue
+            # --- FILTERS (Relaxed) ---
+            # Giữ lại các chunk "Niên biểu", "Sự kiện" kể cả khi ngắn
+            is_timeline = any(kw in content for kw in ["Niên biểu", "Sự kiện", "năm"])
+            has_number = any(char.isdigit() for char in content)
             
-            bad_keywords = ["Niên biểu", "Mục lục", "Danh sách", "Các vua", "Tiểu sử"]
-            if len(content) < 100 and any(kw in content for kw in bad_keywords):
-                if content.count('.') > 2: continue
-            
-            if len(content) < 150 and content[-1] not in ['.', '!', '?', '"', "'", ')']:
+            if len(content) < 30 and not (is_timeline and has_number):
                 continue
-            if not any(char in content for char in ['.', '?', '!', ';']):
-                if len(content) < 100: continue
-            if content.count("ISBN") > 0 or content.count("Xuất bản") > 1:
+                
+            if "Mục lục" in content and len(content) < 50:
                 continue
 
-            # Context Injection
-            if content[-1] not in ['.', '!', '?', ';', '"', "'", ')']:
-                content += "."
-            
-            vector_text = f"Chủ đề: {title}\nNội dung: {content}"
+            # --- CONTEXT INJECTION ---
+            # Thêm Title và Category vào đầu đoạn văn để model hiểu ngữ cảnh
+            vector_text = f"Lĩnh vực: {cat_str}. Chủ đề: {title}.\nNội dung: {content}"
             
             new_chunks.append({
-                "chunk_id": f"{idx}_{i}", # Lưu ý: idx này là của df_new
+                "chunk_id": f"{title}_{i}",
                 "doc_title": title,
-                "doc_url": url,
                 "doc_category": cat_str,
-                "vector_text": vector_text,
-                "display_text": content,
-                "char_len": len(vector_text)
+                "vector_text": vector_text, # Dùng để Embed
+                "display_text": content,    # Dùng để hiển thị
+                "doc_url": url
             })
-            
-        # Đánh dấu bài này đã xong
+        
         processed_titles.add(title)
 
-    # --- LƯU KẾT QUẢ ---
-    if not new_chunks:
-        print("⚠️ Các bài mới không tạo được chunk nào.")
-        save_processed_state(processed_titles) # Vẫn lưu state để lần sau không check lại
-        return
-
-    df_delta = pd.DataFrame(new_chunks)
-    
-    # 1. Lưu file DELTA (Chỉ chứa cái mới để Indexing dùng)
-    Config.setup_dirs()
-    df_delta.to_parquet(Config.LATEST_CHUNKS_FILE, index=False, compression='snappy')
-    print(f"💾 [Delta] Đã lưu {len(df_delta)} chunks mới vào: {Config.LATEST_CHUNKS_FILE}")
-    
-    # 2. Append vào file MASTER (Để backup toàn bộ)
-    if Config.MASTER_CHUNKS_FILE.exists():
-        try:
-            df_master = pd.read_parquet(Config.MASTER_CHUNKS_FILE)
-            df_combined = pd.concat([df_master, df_delta], ignore_index=True)
-            df_combined.to_parquet(Config.MASTER_CHUNKS_FILE, index=False, compression='snappy')
-        except:
-            df_delta.to_parquet(Config.MASTER_CHUNKS_FILE, index=False)
+    # Save
+    if new_chunks:
+        df_delta = pd.DataFrame(new_chunks)
+        df_delta.to_parquet(Config.LATEST_CHUNKS_FILE, index=False)
+        print(f"💾 Saved {len(df_delta)} chunks to {Config.LATEST_CHUNKS_FILE}")
+        
+        # Update State
+        with open(Config.CHUNKING_STATE_FILE, 'w', encoding='utf-8') as f:
+            json.dump(list(processed_titles), f, ensure_ascii=False)
     else:
-        df_delta.to_parquet(Config.MASTER_CHUNKS_FILE, index=False, compression='snappy')
-    print(f"💾 [Master] Đã cập nhật file tổng: {Config.MASTER_CHUNKS_FILE}")
-
-    # 3. Lưu trạng thái
-    save_processed_state(processed_titles)
-    print("✅ Đã cập nhật trạng thái xử lý.")
+        print("⚠️ Processed articles but generated no chunks.")
 
 if __name__ == "__main__":
     process_chunking()

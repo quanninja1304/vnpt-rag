@@ -41,32 +41,38 @@ class Config:
 
     # Crawl settings
     MAX_LEVEL = 2
-    MAX_WORKERS = 15
-    TEXT_LIMIT = 25000
+    MAX_WORKERS = 20 # Tăng worker vì cơ chế Queue xử lý rất nhanh
+    TEXT_LIMIT = 30000
     RETRY_ATTEMPTS = 3
-    RATE_LIMIT_DELAY = 0.2
+    RATE_LIMIT_DELAY = 0.05
     
     # --- 3. CHUNKING SETTINGS ---
-    CHUNK_SIZE = 800
-    CHUNK_OVERLAP = 150
+    TOKENIZER_NAME = "bkai-foundation-models/vietnamese-bi-encoder" 
+    CHUNK_SIZE_TOKENS = 256  # Khoảng 400-500 từ, phù hợp context window
+    CHUNK_OVERLAP_TOKENS = 30
 
     # --- 4. INDEXING & QDRANT SETTINGS ---
     COLLECTION_NAME = "vnpt_hackathon_rag"
     MODEL_PATH = "vnptai_hackathon_embedding"
-    DUMMY_MODEL_NAME = "keepitreal/vietnamese-sbert"
+    DUMMY_MODEL_NAME = "bkai-foundation-models/vietnamese-bi-encoder" 
 
     # Batch Size
-    BATCH_SIZE = 128 
+    BATCH_SIZE = 256
     
     # [QUAN TRỌNG] Chuyển thành False để hỗ trợ nạp nối tiếp (Incremental)
-    FORCE_RECREATE = False 
+    FORCE_RECREATE = True
 
     # Qdrant Connection
     USE_QDRANT_CLOUD = os.getenv("USE_CLOUD", "False").lower() == "true"
     QDRANT_URL = os.getenv("QDRANT_URL", "http://localhost:6333")
     QDRANT_API_KEY = os.getenv("QDRANT_API_KEY")
 
-    SPARSE_AVAILABLE = True
+    SPARSE_AVAILABLE = False
+
+    # [NEW] Tham số tối ưu HNSW & Vector (Tuning ở đây dễ hơn)
+    HNSW_M = 32
+    HNSW_EF_CONSTRUCT = 200
+    QUANTIZATION_QUANTILE = 0.99
 
     # Export formats
     EXPORT_CSV = True
