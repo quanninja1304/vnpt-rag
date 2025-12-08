@@ -459,13 +459,13 @@ def main():
     
     # Time
     elapsed = time.time() - start_time
-    logger.info(f"\n⏱ Total time: {elapsed/60:.2f} minutes ({elapsed:.1f}s)")
+    logger.info(f"\nTotal time: {elapsed/60:.2f} minutes ({elapsed:.1f}s)")
     
     total_articles = crawler.stats['articles_crawled'] + crawler.stats['articles_from_cache']
     if total_articles > 0:
         logger.info(f"Speed: {total_articles/elapsed:.1f} articles/second")
     
-    logger.info("\n✓ Crawl completed successfully!")
+    logger.info("\nCrawl completed successfully!")
 
 
 if __name__ == "__main__":

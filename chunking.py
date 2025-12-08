@@ -3,8 +3,24 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 from tqdm import tqdm
 import re
 import os
+import json
 from pathlib import Path
 from config import Config
+
+# ===========================
+# 1. STATE MANAGEMENT (NEW)
+# ===========================
+def load_processed_state():
+    """Đọc danh sách các bài đã chunk trước đó"""
+    if Config.CHUNKING_STATE_FILE.exists():
+        with open(Config.CHUNKING_STATE_FILE, 'r', encoding='utf-8') as f:
+            return set(json.load(f))
+    return set()
+
+def save_processed_state(processed_titles):
+    """Lưu lại danh sách các bài đã chunk"""
+    with open(Config.CHUNKING_STATE_FILE, 'w', encoding='utf-8') as f:
+        json.dump(list(processed_titles), f, ensure_ascii=False)
 
 # ===========================
 # 2. CLEAN TEXT (CORE LOGIC)
@@ -79,120 +95,115 @@ def process_chunking():
         
     print(f"Số lượng bài viết gốc: {len(df)}")
     
-    # --- B. KHỞI TẠO SPLITTER ---
-    # Ưu tiên cắt theo đoạn văn (\n\n) trước, sau đó đến câu (. )
+    # --- LOGIC INCREMENTAL: LỌC BÀI MỚI ---
+    processed_titles = load_processed_state()
+    print(f"📦 Tổng bài viết trong kho: {len(df)}")
+    print(f"🔄 Đã xử lý trước đó: {len(processed_titles)}")
+    
+    # Lọc ra các bài chưa có trong state
+    df_new = df[~df['title'].isin(processed_titles)]
+    
+    if len(df_new) == 0:
+        print("✅ Không có bài viết mới. Pipeline nghỉ ngơi!")
+        # Xóa file delta cũ để tránh Indexing nạp lại thừa
+        if Config.LATEST_CHUNKS_FILE.exists():
+            os.remove(Config.LATEST_CHUNKS_FILE)
+        return
+
+    print(f"⚡ Phát hiện {len(df_new)} bài viết mới. Bắt đầu chunking...")
+    
     splitter = RecursiveCharacterTextSplitter(
         chunk_size=Config.CHUNK_SIZE,
         chunk_overlap=Config.CHUNK_OVERLAP,
-        separators=[
-        "\n\n",      # Ưu tiên 1: Ngắt đoạn
-        "\n",        # Ưu tiên 2: Xuống dòng
-        ". ",        # Ưu tiên 3: Hết câu (có dấu cách)
-        ".",         # Ưu tiên 4: Hết câu (dính liền - trường hợp lỗi typo)
-        "!", "?",    # Câu cảm thán/hỏi
-        ";",         # Dấu chấm phẩy
-        " ",         # Dấu cách (Fallback cuối cùng)
-        ""           # Cắt ký tự (Bất đắc dĩ mới dùng)
-    ],
+        separators=["\n\n", "\n", ". ", ".", "!", "?", ";", " ", ""],
         length_function=len,
         is_separator_regex=False
     )
     
-    final_chunks = []
+    new_chunks = []
     
-    # --- C. VÒNG LẶP XỬ LÝ ---
-    for idx, row in tqdm(df.iterrows(), total=len(df)):
+    # --- VÒNG LẶP XỬ LÝ (Chỉ chạy trên df_new) ---
+    for idx, row in tqdm(df_new.iterrows(), total=len(df_new)):
         original_text = row.get('text', '')
         title = row.get('title', 'Không tiêu đề')
         url = row.get('url', '')
         categories = row.get('categories', [])
-        
-        # Convert categories list to string
         cat_str = str(categories) if categories else ""
 
-        # 1. CLEANING
+        # Cleaning
         clean_text = clean_wiki_text(original_text)
-        
-        # Lọc: Bài quá ngắn sau khi clean -> Bỏ
-        if len(clean_text) < 50: continue
+        if len(clean_text) < 50: 
+            processed_titles.add(title) # Đánh dấu đã xử lý (dù là rác)
+            continue
 
-        # 2. CHUNKING
+        # Chunking
         chunks = splitter.create_documents([clean_text])
         
         for i, chunk in enumerate(chunks):
             content = re.sub(r'^[.,;\s]+', '', chunk.page_content).strip()
             
-            # Lọc 1: Chunk quá ngắn
+            # --- FILTERS ---
             if len(content) < 60: continue
-
-            # 2. Lọc chunk "Treo"
-            # Nếu kết thúc bằng dấu hai chấm, nghĩa là nó chưa nói hết câu -> BỎ
             if content.endswith(':'): continue
-
-            # 3. Lọc chunk "Danh sách rác"
-            # Nếu chunk chứa từ "Niên biểu", "Xem thêm", "Mục lục" và ngắn dưới 100 ký tự -> BỎ
+            
             bad_keywords = ["Niên biểu", "Mục lục", "Danh sách", "Các vua", "Tiểu sử"]
             if len(content) < 100 and any(kw in content for kw in bad_keywords):
-                if content.count('.') > 2: # Nếu có nhiều dấu chấm (do gộp dòng tiêu đề)
-                    continue
-
-            # 4. Lọc chunk không có dấu kết thúc câu nếu chunk ngắn (< 150 ký tự)
+                if content.count('.') > 2: continue
+            
             if len(content) < 150 and content[-1] not in ['.', '!', '?', '"', "'", ')']:
                 continue
-            
-            # Lọc 2: Chunk không có dấu câu kết thúc -> thường là list rác
             if not any(char in content for char in ['.', '?', '!', ';']):
-                # Cho phép ngoại lệ nếu chunk rất dài -> có thể là đoạn văn thiếu dấu chấm
                 if len(content) < 100: continue
-            
-            # Lọc 3: Chunk chứa quá nhiều từ khóa sách vở
             if content.count("ISBN") > 0 or content.count("Xuất bản") > 1:
                 continue
 
-            # --- E. CONTEXT INJECTION
-            # Format: "Chủ đề: {title}\nNội dung: {content}"
+            # Context Injection
             if content[-1] not in ['.', '!', '?', ';', '"', "'", ')']:
                 content += "."
-                
+            
             vector_text = f"Chủ đề: {title}\nNội dung: {content}"
             
-            final_chunks.append({
-                "chunk_id": f"{idx}_{i}",
+            new_chunks.append({
+                "chunk_id": f"{idx}_{i}", # Lưu ý: idx này là của df_new
                 "doc_title": title,
                 "doc_url": url,
                 "doc_category": cat_str,
-                "vector_text": vector_text,    # Text dùng để Embed (context ịnected)
-                "display_text": content,       # Text gốc
+                "vector_text": vector_text,
+                "display_text": content,
                 "char_len": len(vector_text)
             })
+            
+        # Đánh dấu bài này đã xong
+        processed_titles.add(title)
 
-    # --- F. LƯU KẾT QUẢ ---
-    if not final_chunks:
-        print("Cảnh báo: Không tạo ra được chunk nào!")
+    # --- LƯU KẾT QUẢ ---
+    if not new_chunks:
+        print("⚠️ Các bài mới không tạo được chunk nào.")
+        save_processed_state(processed_titles) # Vẫn lưu state để lần sau không check lại
         return
 
-    result_df = pd.DataFrame(final_chunks)
+    df_delta = pd.DataFrame(new_chunks)
     
-    print(f"\nXử lý hoàn tất!")
-    print(f"   - Đầu vào: {len(df)} bài viết")
-    print(f"   - Đầu ra : {len(result_df)} chunks sạch")
-    print(f"   - Tỷ lệ  : {len(result_df)/len(df):.1f} chunks/bài")
+    # 1. Lưu file DELTA (Chỉ chứa cái mới để Indexing dùng)
+    Config.setup_dirs()
+    df_delta.to_parquet(Config.LATEST_CHUNKS_FILE, index=False, compression='snappy')
+    print(f"💾 [Delta] Đã lưu {len(df_delta)} chunks mới vào: {Config.LATEST_CHUNKS_FILE}")
     
-    # Tạo thư mục output
-    os.makedirs(Config.CHUNKING_OUTPUT_FILE.parent, exist_ok=True)
-    
-    result_df.to_parquet(Config.CHUNKING_OUTPUT_FILE, index=False, compression='snappy')
-    print(f"File đã lưu tại: {Config.CHUNKING_OUTPUT_FILE}")
-    
-    # --- G. KIỂM TRA MẪU (SANITY CHECK) ---
-    print("\n" + "="*60)
-    print("KIỂM TRA 1 CHUNK NGẪU NHIÊN")
-    print("="*60)
-    if len(result_df) > 0:
-        sample = result_df.sample(1).iloc[0]
-        print(f"[Title]: {sample['doc_title']}")
-        print(f"[Vector Text]:\n{sample['vector_text']}")
-        print("-"*60)
+    # 2. Append vào file MASTER (Để backup toàn bộ)
+    if Config.MASTER_CHUNKS_FILE.exists():
+        try:
+            df_master = pd.read_parquet(Config.MASTER_CHUNKS_FILE)
+            df_combined = pd.concat([df_master, df_delta], ignore_index=True)
+            df_combined.to_parquet(Config.MASTER_CHUNKS_FILE, index=False, compression='snappy')
+        except:
+            df_delta.to_parquet(Config.MASTER_CHUNKS_FILE, index=False)
+    else:
+        df_delta.to_parquet(Config.MASTER_CHUNKS_FILE, index=False, compression='snappy')
+    print(f"💾 [Master] Đã cập nhật file tổng: {Config.MASTER_CHUNKS_FILE}")
+
+    # 3. Lưu trạng thái
+    save_processed_state(processed_titles)
+    print("✅ Đã cập nhật trạng thái xử lý.")
 
 if __name__ == "__main__":
     process_chunking()

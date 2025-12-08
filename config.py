@@ -8,31 +8,41 @@ load_dotenv()
 class Config:
     """Centralized configuration"""
     # --- 1. DIRECTORIES & FILES ---
-    CACHE_DIR = Path("cache")
-    LOGS_DIR = Path("logs")
-    OUTPUT_DIR = Path("output")
+    BASE_DIR = Path(__file__).parent
+    CACHE_DIR = BASE_DIR / "cache"
+    LOGS_DIR = BASE_DIR / "logs"
+    OUTPUT_DIR = BASE_DIR / "output"
     
     # Crawler Files
     ARTICLES_CACHE = CACHE_DIR / "articles_cache.json"
     CATEGORY_TREE = CACHE_DIR / "category_tree.json"
     METADATA = CACHE_DIR / "metadata.json"
+    
+    # Output của Crawler (Luôn là file chứa TOÀN BỘ dữ liệu thô)
     CRAWL_OUTPUT_JSON = OUTPUT_DIR / "final_wikipedia_vietnam_full.json"
     CRAWL_OUTPUT_CSV = OUTPUT_DIR / "final_wikipedia_vietnam_full.csv"
     CRAWL_OUTPUT_PARQUET = OUTPUT_DIR / "final_wikipedia_vietnam_full.parquet"
     
-    # Chunking Files
-    # Input của Chunking là Output của Crawler
-    CHUNKING_INPUT_FILE = CRAWL_OUTPUT_PARQUET 
-    CHUNKING_OUTPUT_FILE = OUTPUT_DIR / "wiki_vn_chunks.parquet"
+    # --- FILES QUẢN LÝ TRẠNG THÁI (NEW) ---
+    # File lưu danh sách tiêu đề các bài đã được chunking xong
+    CHUNKING_STATE_FILE = OUTPUT_DIR / "chunking_state.json"
+    
+    # File chứa các chunk MỚI NHẤT vừa sinh ra (Delta) - Dùng để Indexing
+    LATEST_CHUNKS_FILE = OUTPUT_DIR / "delta_chunks_to_index.parquet"
+    
+    # File chứa TOÀN BỘ chunks (Master) - Để lưu trữ lâu dài
+    MASTER_CHUNKS_FILE = OUTPUT_DIR / "wiki_vn_chunks_master.parquet"
 
-    # Indexing files
-    # input cuar indexing laf output cuar chunking
-    INDEXING_INPUT_FILE = CHUNKING_OUTPUT_FILE
+    # Pipeline Flow
+    CHUNKING_INPUT_FILE = CRAWL_OUTPUT_PARQUET 
+    
+    # Indexing sẽ đọc file DELTA thay vì file full
+    INDEXING_INPUT_FILE = LATEST_CHUNKS_FILE
 
     # Crawl settings
     MAX_LEVEL = 2
     MAX_WORKERS = 15
-    TEXT_LIMIT = 25000  # Tăng lên 20k cho RAG tốt hơn
+    TEXT_LIMIT = 25000
     RETRY_ATTEMPTS = 3
     RATE_LIMIT_DELAY = 0.2
     
@@ -45,16 +55,18 @@ class Config:
     MODEL_PATH = "vnptai_hackathon_embedding"
     DUMMY_MODEL_NAME = "keepitreal/vietnamese-sbert"
 
-    # Batch Size (Tùy chỉnh theo GPU/CPU)
+    # Batch Size
     BATCH_SIZE = 128 
-    FORCE_RECREATE = True
+    
+    # [QUAN TRỌNG] Chuyển thành False để hỗ trợ nạp nối tiếp (Incremental)
+    FORCE_RECREATE = False 
 
     # Qdrant Connection
     USE_QDRANT_CLOUD = os.getenv("USE_CLOUD", "False").lower() == "true"
     QDRANT_URL = os.getenv("QDRANT_URL", "http://localhost:6333")
     QDRANT_API_KEY = os.getenv("QDRANT_API_KEY")
 
-    SPARSE_AVAILABLE=True
+    SPARSE_AVAILABLE = True
 
     # Export formats
     EXPORT_CSV = True
