@@ -100,3 +100,4 @@ docker-compose.yml
 Dockerfile
 
 logs/
+docs/

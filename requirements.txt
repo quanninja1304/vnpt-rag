@@ -11,3 +11,6 @@ wikipediaapi
 python-dotenv
 fastembed
 matplotlib
+requests 
+beautifulsoup4 
+trafilatura
