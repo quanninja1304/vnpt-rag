@@ -39,6 +39,9 @@ class Config:
     # Indexing sẽ đọc file DELTA thay vì file full
     INDEXING_INPUT_FILE = LATEST_CHUNKS_FILE
 
+    # checkpoint
+    CHECKPOINT_FILE = OUTPUT_DIR / "indexing_checkpoint.txt"
+
     # Crawl settings
     MAX_LEVEL = 2
     MAX_WORKERS = 20 # Tăng worker vì cơ chế Queue xử lý rất nhanh
