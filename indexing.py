@@ -1,145 +1,149 @@
 import pandas as pd
-from sentence_transformers import SentenceTransformer
-from qdrant_client import QdrantClient
-from qdrant_client.http import models
-from fastembed import SparseTextEmbedding
-from tqdm import tqdm
-import torch
-import uuid
+from qdrant_client import QdrantClient, models
+import time
 import json
-import os
+import uuid
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from threading import Lock
 from config import Config
+from vnpt_client import get_vnpt_embedding
+
+# --- 1. RATE LIMITER (NON-BLOCKING) ---
+class RateLimiter:
+    def __init__(self, max_calls_per_minute=480):
+        # 480 req/phút -> an toàn so với 500
+        self.delay = 60.0 / max_calls_per_minute
+        self.next_allowed_time = 0
+        self.lock = Lock()
+
+    def wait(self):
+        with self.lock:
+            now = time.time()
+            target_time = max(now, self.next_allowed_time)
+            self.next_allowed_time = target_time + self.delay
+        
+        sleep_time = target_time - time.time()
+        if sleep_time > 0:
+            time.sleep(sleep_time)
 
 def generate_uuid5(unique_string):
-    """Tạo UUID cố định từ string (Deterministic)"""
     return str(uuid.uuid5(uuid.NAMESPACE_DNS, unique_string))
 
 def main():
-    # 1. Check Input
+    # 1. Load Data
     if not Config.LATEST_CHUNKS_FILE.exists():
-        print(f"❌ File not found: {Config.LATEST_CHUNKS_FILE}")
+        print("❌ Không có dữ liệu chunks.")
         return
-        
+    
     df = pd.read_parquet(Config.LATEST_CHUNKS_FILE)
-    print(f"🔥 Loading {len(df)} chunks to index...")
+    total_records = len(df)
+    print(f"🔥 Chuẩn bị index {total_records} chunks qua API...")
 
-    # 2. Load Models
-    device = "cuda" if torch.cuda.is_available() else "cpu"
-    print(f"Device: {device.upper()} (Optimization enabled for RTX 3090)")
+    # 2. Setup Qdrant
+    client = QdrantClient(url=Config.QDRANT_URL, api_key=Config.QDRANT_API_KEY)
     
-    dense_model = SentenceTransformer(Config.MODEL_PATH, device=device)
-    
-    sparse_model = None
-    if Config.SPARSE_AVAILABLE:
-        try:
-            # BM25 embedding (FastEmbed)
-            sparse_model = SparseTextEmbedding(model_name="Qdrant/bm25")
-            print("✅ Sparse Model loaded.")
-        except Exception as e:
-            print(f"⚠️ Failed to load Sparse model: {e}")
-            Config.SPARSE_AVAILABLE = False
+    print("🧪 Đang test API Embedding...")
+    sample_vec = None
+    for i in range(3):
+        sample_vec = get_vnpt_embedding("Kiểm tra vector")
+        if sample_vec: break
+        print(f"   Retry test {i+1}...")
+        time.sleep(2)
 
-    # 3. Connect Qdrant
-    client = QdrantClient(
-        url=Config.QDRANT_URL, 
-        api_key=Config.QDRANT_API_KEY
-    )
+    if not sample_vec:
+        print("❌ API Embedding lỗi. Kiểm tra mạng hoặc Key.")
+        return
+    
+    vector_size = len(sample_vec)
+    print(f"✅ Vector Size chuẩn: {vector_size}")
 
     if Config.FORCE_RECREATE and client.collection_exists(Config.COLLECTION_NAME):
         client.delete_collection(Config.COLLECTION_NAME)
 
     if not client.collection_exists(Config.COLLECTION_NAME):
-        print("🛠 Creating Collection...")
         client.create_collection(
             collection_name=Config.COLLECTION_NAME,
-            vectors_config={
-                "dense": models.VectorParams(
-                    size=dense_model.get_sentence_embedding_dimension(),
-                    distance=models.Distance.COSINE,
-                    on_disk=True, # Index trên disk cho an toàn
-                    # RTX 3090 dư VRAM -> Quantization để always_ram=True để search siêu nhanh
-                    quantization_config=models.ScalarQuantization(
-                        scalar=models.ScalarQuantizationConfig(
-                            type=models.ScalarType.INT8,
-                            quantile=0.99,
-                            always_ram=True 
-                        )
-                    )
-                )
-            },
-            sparse_vectors_config={
-                "sparse": models.SparseVectorParams(
-                    index=models.SparseIndexParams(on_disk=True)
-                )
-            } if Config.SPARSE_AVAILABLE else None
+            vectors_config=models.VectorParams(
+                size=vector_size, 
+                distance=models.Distance.COSINE
+            )
         )
 
-    # 4. Indexing Process
+    # 3. Indexing Loop
+    limiter = RateLimiter(max_calls_per_minute=480)
     records = df.to_dict('records')
-    failed_batches = []
+    failed_ids = []
     
-    # Batch size 256 from Config
-    for i in tqdm(range(0, len(records), Config.BATCH_SIZE), desc="Indexing"):
-        batch = records[i : i + Config.BATCH_SIZE]
-        texts = [r['vector_text'] for r in batch]
-        
+    BATCH_SIZE = 50 
+    
+    def process_item(item):
         try:
-            # Dense Embedding
-            dense_vecs = dense_model.encode(texts, batch_size=len(batch), normalize_embeddings=True)
-            
-            # Sparse Embedding
-            sparse_vecs = []
-            if Config.SPARSE_AVAILABLE:
-                sparse_vecs = list(sparse_model.embed(texts))
-
-            points = []
-            for idx, item in enumerate(batch):
-                # IDMPOTENCY: Tạo ID từ chunk_id. Chạy lại code sẽ overwrite chứ không tạo trùng lặp.
-                point_id = generate_uuid5(str(item['chunk_id']))
-                
-                # Vectors
-                vectors = {"dense": dense_vecs[idx].tolist()}
-                if Config.SPARSE_AVAILABLE:
-                    vectors["sparse"] = models.SparseVector(
-                        indices=sparse_vecs[idx].indices.tolist(),
-                        values=sparse_vecs[idx].values.tolist()
-                    )
-
-                # Payload
-                points.append(models.PointStruct(
-                    id=point_id,
-                    vector=vectors,
+            limiter.wait()
+            vec = get_vnpt_embedding(item['vector_text'])
+            if vec:
+                return models.PointStruct(
+                    id=generate_uuid5(str(item['chunk_id'])),
+                    vector=vec,
                     payload={
                         "title": item['doc_title'],
-                        "url": item['doc_url'],
+                        "text": item['display_text'],
                         "category": item['doc_category'],
-                        "text": item['display_text'], # Chỉ lưu text hiển thị
-                        "full_vector_text": item['vector_text'] # Lưu cả text đã inject context (optional)
+                        "url": item['doc_url'],
+                        "chunk_id": item['chunk_id'] # [FIX] Thêm chunk_id vào payload
                     }
-                ))
-
-            # Upsert to Qdrant
-            client.upsert(
-                collection_name=Config.COLLECTION_NAME,
-                points=points,
-                wait=False
-            )
-            
+                )
         except Exception as e:
-            print(f"❌ Error batch {i}: {e}")
-            failed_batches.append({
-                "batch_index": i,
-                "error": str(e),
-                "chunk_ids": [r['chunk_id'] for r in batch]
-            })
+            print(f"\n⚠️ Error processing {item.get('chunk_id')}: {e}")
+        return None
 
-    # 5. Final Report
-    if failed_batches:
-        print(f"⚠️ Completed with {len(failed_batches)} failed batches. See logs.")
+    print("🚀 Bắt đầu Indexing (Treo máy khoảng 6-8 tiếng)...")
+    
+    with ThreadPoolExecutor(max_workers=10) as executor:
+        
+        for i in range(0, total_records, BATCH_SIZE):
+            batch_records = records[i : i + BATCH_SIZE]
+            
+            future_to_item = {
+                executor.submit(process_item, item): item 
+                for item in batch_records
+            }
+            
+            valid_points = []
+            
+            for future in as_completed(future_to_item):
+                item = future_to_item[future]
+                try:
+                    result = future.result()
+                    if result:
+                        valid_points.append(result)
+                    else:
+                        failed_ids.append(item['chunk_id'])
+                except Exception:
+                    failed_ids.append(item['chunk_id'])
+            
+            # Upsert
+            if valid_points:
+                try:
+                    client.upsert(
+                        collection_name=Config.COLLECTION_NAME,
+                        points=valid_points
+                    )
+                except Exception as e:
+                    print(f"❌ Lỗi Upsert Qdrant: {e}")
+                    # Bây giờ dòng này sẽ chạy đúng vì payload đã có chunk_id
+                    failed_ids.extend([p.payload['chunk_id'] for p in valid_points])
+            
+            # Progress Log
+            processed_count = i + len(batch_records)
+            percent = (processed_count / total_records) * 100
+            print(f"✅ Progress: {processed_count}/{total_records} ({percent:.2f}%) | Fail: {len(failed_ids)}", end='\r')
+
+    print("\n✅ HOÀN TẤT INDEXING!")
+    
+    if failed_ids:
+        print(f"⚠️ Có {len(failed_ids)} chunks bị lỗi. Lưu vào log.")
         with open(Config.FAILED_BATCHES_FILE, 'w', encoding='utf-8') as f:
-            json.dump(failed_batches, f, indent=2)
-    else:
-        print("✅ Indexing SUCCESS (100%)!")
+            json.dump(failed_ids, f, ensure_ascii=False, indent=2)
 
 if __name__ == "__main__":
     main()

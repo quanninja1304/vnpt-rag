@@ -56,6 +56,33 @@ class Config:
     MODEL_PATH = "vnptai_hackathon_embedding"
     DUMMY_MODEL_NAME = "bkai-foundation-models/vietnamese-bi-encoder" 
 
+    VNPT_API_URL = "https://api.idg.vnpt.vn/data-service/v1/chat/completions"
+    VNPT_EMBEDDING_URL = "https://api.idg.vnpt.vn/data-service/vnptai-hackathon-embedding"
+
+    VNPT_ACCESS_TOKEN = os.getenv("VNPT_ACCESS_TOKEN", "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0cmFuc2FjdGlvbl9pZCI6ImM1NTJlMjY1LTE1YmItNGMxOS1iM2M4LTI5ZjMxZTEzOTY2MSIsInN1YiI6IjQyZWZmOGVkLWQxMmEtMTFmMC05M2Q1LTMxMzk4NzZkNGIyMyIsImF1ZCI6WyJyZXN0c2VydmljZSJdLCJ1c2VyX25hbWUiOiJuZ3V5ZW5kYWlxdWFuMDZAZ21haWwuY29tIiwic2NvcGUiOlsicmVhZCJdLCJpc3MiOiJodHRwczovL2xvY2FsaG9zdCIsIm5hbWUiOiJuZ3V5ZW5kYWlxdWFuMDZAZ21haWwuY29tIiwidXVpZF9hY2NvdW50IjoiNDJlZmY4ZWQtZDEyYS0xMWYwLTkzZDUtMzEzOTg3NmQ0YjIzIiwiYXV0aG9yaXRpZXMiOlsiVVNFUiIsIlRSQUNLXzIiXSwianRpIjoiMWRmNTQ1ZWEtMmQ2ZC00NzU1LWJjYjctNDFkYjRmNDVhMTU1IiwiY2xpZW50X2lkIjoiYWRtaW5hcHAifQ.jwo4XbiZfAsWE14F2v5S2KO6YNLvES_AwVPJt8wpWNODkUCvA0YDb34BtfTZNXCPZBIPZbkFL25xKd4zPxHy3ZuQsOXsMDd98xD5v1qZtCT1_BqrewRig1btzXrhocU2TMJH_76VIv4KKyHmUWFJwftBd2wy2ixo8k3ojOwgUMxp4X8rfSYTruXs1M7mGNlkDYYTtUfevV_2YFwvcB8pmRjrfklMtBIrz2sTKnDDKn_ML8jJ-ipUuz0kvA8Tyn79PFyp4bfV76NwsDcxP-IeVZAiVS8c47dOQ3nQHXmsNbjI6dB34Aa1b7cEJ_fArCE261PosISSfhdPU1hlgg5p8w")
+
+    # Tên Model
+    LLM_MODEL_LARGE = "vnptai_hackathon_large"
+    LLM_MODEL_SMALL = "vnptai_hackathon_small"
+    MODEL_EMBEDDING_API = "vnptai_hackathon_embedding"
+
+    VNPT_CREDENTIALS = {
+        # Config cho Large
+        LLM_MODEL_LARGE: {
+            "token_id": os.getenv("VNPT_LARGE_ID", "4525a842-6caa-553c-e063-62199f0a1086"),
+            "token_key": os.getenv("VNPT_LARGE_KEY", "MFwwDQYJKoZIhvcNAQEBBQADSwAwSAJBAOfzHEYrHzU8anUg0pAukEdooGkBSSduyuHJj+hK0NukYmQCAfaxoQ5jUD9ekVFEGwlzg6BOAxpGo+2Cj2RY5UMCAwEAAQ==")
+        },
+        # Config cho Small
+        LLM_MODEL_SMALL: {
+            "token_id": os.getenv("VNPT_SMALL_ID", "4525a842-6cab-553c-e063-62199f0a1086"),
+            "token_key": os.getenv("VNPT_SMALL_KEY", "MFwwDQYJKoZIhvcNAQEBBQADSwAwSAJBAJIZcz/zVyTEiNX6eICBMdBacp7LD5swBGZkv7Y9wQItZlN+JfzrFqwEd7ywPJpHcnwt78CAWnnvLl/NmSU9v70CAwEAAQ==")
+        },
+        MODEL_EMBEDDING_API: {
+            "token_id": os.getenv("VNPT_EMBED_ID", "4525a84b-0034-2031-e063-62199f0af9db"),
+            "token_key": os.getenv("VNPT_EMBED_KEY", "MFwwDQYJKoZIhvcNAQEBBQADSwAwSAJBANNtXXdFdXwzYMNhQwPNVObxjmwyzrw3dZitGvYw39Ofph/7qLus3P55x4Pf/zt+ohGCBK2XAhhtaw2W1ez8HuECAwEAAQ==")
+        }
+    }
+    
     # Batch Size
     BATCH_SIZE = 256
     
