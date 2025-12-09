@@ -32,7 +32,7 @@ class Config:
     
     # File chứa TOÀN BỘ chunks (Master) - Để lưu trữ lâu dài
     MASTER_CHUNKS_FILE = OUTPUT_DIR / "wiki_vn_chunks_master.parquet"
-
+    
     # Pipeline Flow
     CHUNKING_INPUT_FILE = CRAWL_OUTPUT_PARQUET 
     
