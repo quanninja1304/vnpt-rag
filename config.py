@@ -32,7 +32,7 @@ class Config:
     
     # File chứa TOÀN BỘ chunks (Master) - Để lưu trữ lâu dài
     MASTER_CHUNKS_FILE = OUTPUT_DIR / "wiki_vn_chunks_master.parquet"
-    
+
     # Pipeline Flow
     CHUNKING_INPUT_FILE = CRAWL_OUTPUT_PARQUET 
     
@@ -48,8 +48,8 @@ class Config:
     
     # --- 3. CHUNKING SETTINGS ---
     TOKENIZER_NAME = "bkai-foundation-models/vietnamese-bi-encoder" 
-    CHUNK_SIZE_TOKENS = 256  # Khoảng 400-500 từ, phù hợp context window
-    CHUNK_OVERLAP_TOKENS = 30
+    CHUNK_SIZE_TOKENS = 2048
+    CHUNK_OVERLAP_TOKENS = 256
 
     # --- 4. INDEXING & QDRANT SETTINGS ---
     COLLECTION_NAME = "vnpt_hackathon_rag"
