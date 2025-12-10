@@ -12,7 +12,7 @@ from config import Config
 
 # --- 1. CẤU HÌNH TỐI ƯU ---
 # Rate Limit an toàn: 480 req/phút (tối đa 500)
-RATE_LIMITER = AsyncLimiter(480, 60)
+RATE_LIMITER = AsyncLimiter(300, 60)
 
 # Số lượng Concurrent Workers (Async nhẹ nên có thể để 20-30)
 NUM_WORKERS = 30
@@ -258,7 +258,7 @@ async def main():
 
     # 3. Setup Queue & Workers
     queue = asyncio.Queue()
-    
+    records = df_to_process.to_dict('records')
     # Nạp data vào queue
     for record in records:
         queue.put_nowait(record)
@@ -302,7 +302,6 @@ async def main():
         print(f"📄 Saved failed IDs to {failed_file}")
 
 if __name__ == "__main__":
-    # Fix lỗi Event Loop trên Windows
     if sys.platform == 'win32':
         asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
         

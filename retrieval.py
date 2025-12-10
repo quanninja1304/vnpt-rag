@@ -1,127 +1,87 @@
-import time
-from qdrant_client import QdrantClient, models
-from sentence_transformers import SentenceTransformer, CrossEncoder
-from fastembed import SparseTextEmbedding
-import torch
+import asyncio
+from qdrant_client import QdrantClient
 from config import Config
+from vnpt_client import get_vnpt_embedding, call_vnpt_llm
+import json
 
-class AdvancedRetriever:
-    def __init__(self):
-        print("🚀 Initializing Advanced Retriever...")
-        
-        # 1. Qdrant
-        self.client = QdrantClient(url=Config.QDRANT_URL, api_key=Config.QDRANT_API_KEY)
-        
-        # 2. Embedding Model (Dense) - FALLBACK LOGIC
-        device = "cuda" if torch.cuda.is_available() else "cpu"
-        try:
-            self.dense_model = SentenceTransformer(Config.MODEL_PATH, device=device)
-        except:
-            print(f"⚠️ Dense Fallback: {Config.DUMMY_MODEL_NAME}")
-            self.dense_model = SentenceTransformer(Config.DUMMY_MODEL_NAME, device=device)
-            
-        # 3. Sparse Model (BM25)
-        self.sparse_model = None
-        if getattr(Config, 'SPARSE_AVAILABLE', True):
-            try:
-                self.sparse_model = SparseTextEmbedding(model_name="Qdrant/bm25")
-            except Exception as e:
-                print(f"⚠️ Sparse load failed: {e}")
+# --- CẤU HÌNH ---
+TOP_K = 5 # Lấy 5 đoạn văn bản liên quan nhất (Với chunk to, 5 đoạn là rất nhiều thông tin)
 
-        # 4. RE-RANKER (QUAN TRỌNG NHẤT)
-        # Model này sẽ chấm điểm lại sự phù hợp giữa Query và Document
-        print("⏳ Loading Re-ranker (BAAI/bge-reranker-v2-m3)...")
-        try:
-            # Model này hỗ trợ tiếng Việt rất tốt và Multilingual
-            self.reranker = CrossEncoder('BAAI/bge-reranker-v2-m3', device=device)
-            print("✅ Re-ranker loaded.")
-        except Exception as e:
-            print(f"⚠️ Re-ranker load failed: {e}. Downloading fallback...")
-            # Fallback model nhẹ hơn nếu model trên lỗi
-            self.reranker = CrossEncoder('cross-encoder/ms-marco-MiniLM-L-6-v2', device=device)
+async def search_qdrant(query_text):
+    """Tìm kiếm semantic search trên Qdrant"""
+    # 1. Embed câu hỏi
+    query_vector = get_vnpt_embedding(query_text)
+    if not query_vector:
+        print("❌ Lỗi embedding câu hỏi")
+        return []
 
-    def search(self, query: str, top_k: int = 5):
-        """
-        Quy trình: Hybrid Search (Lấy 30) -> Re-ranking (Lọc lấy top_k)
-        """
-        start_time = time.time()
-        
-        # A. Hybrid Search (Lấy rộng - Recall phase)
-        # ==========================================
-        dense_vec = self.dense_model.encode(query, normalize_embeddings=True).tolist()
-        
-        sparse_vec = None
-        if self.sparse_model:
-            sparse_res = list(self.sparse_model.embed([query]))[0]
-            sparse_vec = models.SparseVector(
-                indices=sparse_res.indices.tolist(),
-                values=sparse_res.values.tolist()
-            )
+    # 2. Search Qdrant
+    client = QdrantClient(url=Config.QDRANT_URL, api_key=Config.QDRANT_API_KEY)
+    
+    search_result = client.search(
+        collection_name=Config.COLLECTION_NAME,
+        query_vector=query_vector,
+        limit=TOP_K,
+        with_payload=True
+    )
+    
+    return search_result
 
-        prefetch = [models.Prefetch(query=dense_vec, using="dense", limit=30)] # Lấy 30 ứng viên
-        if sparse_vec:
-            prefetch.append(models.Prefetch(query=sparse_vec, using="sparse", limit=30))
+def build_prompt(query, retrieved_chunks):
+    """Ghép context vào prompt"""
+    context_text = ""
+    for i, hit in enumerate(retrieved_chunks):
+        # Format: [Document Title] Content
+        context_text += f"\n--- TÀI LIỆU {i+1} (Nguồn: {hit.payload.get('title', 'Unknown')}) ---\n"
+        context_text += hit.payload.get('text', '') + "\n"
 
-        # Tìm kiếm sơ bộ từ DB
-        raw_results = self.client.query_points(
-            collection_name=Config.COLLECTION_NAME,
-            prefetch=prefetch,
-            query=models.FusionQuery(fusion=models.Fusion.RRF),
-            limit=30 # Lấy dư ra để lọc nhiễu
-        )
-        
-        if not raw_results.points:
-            return []
+    # Prompt Template (Tối ưu cho Tiếng Việt & Trắc nghiệm)
+    prompt = [
+                {"role": "system", "content": """Bạn là một trợ lý AI thông minh tham gia cuộc thi hỏi đáp về Việt Nam.
+        Nhiệm vụ của bạn là trả lời câu hỏi dựa CHÍNH XÁC và DUY NHẤT trên các đoạn văn bản được cung cấp bên dưới.
+        Nếu thông tin không có trong văn bản, hãy trả lời là không biết, đừng bịa ra.
+        Đối với câu hỏi trắc nghiệm, hãy suy luận và chọn đáp án đúng nhất (A, B, C, hoặc D)."""},
+                
+                {"role": "user", "content": f"""
+        Dưới đây là thông tin tham khảo:
+        {context_text}
 
-        # B. Re-ranking (Lọc tinh - Precision phase)
-        # ==========================================
-        # Chuẩn bị dữ liệu cho Re-ranker
-        documents = []
-        points_map = [] # Để map lại payload sau khi sort
-        
-        for point in raw_results.points:
-            # Kết hợp Title + Text để model hiểu ngữ cảnh đầy đủ
-            doc_content = f"{point.payload.get('title', '')}. {point.payload.get('text', '')}"
-            documents.append(doc_content)
-            points_map.append(point)
-        
-        if not documents: return []
+        ----------------
+        CÂU HỎI: {query}
+        ----------------
+        Hãy đưa ra câu trả lời cuối cùng:"""}
+            ]
+    return prompt
 
-        # Re-ranker chấm điểm từng cặp (Query, Document)
-        # predict trả về array điểm số (score càng cao càng liên quan)
-        pairs = [[query, doc] for doc in documents]
-        rerank_scores = self.reranker.predict(pairs)
+async def run_test(question):
+    print(f"❓ Đang hỏi: {question}")
+    
+    # 1. Retrieval
+    results = await search_qdrant(question)
+    if not results:
+        print("⚠️ Không tìm thấy tài liệu liên quan.")
+        return
 
-        # Gán điểm mới và sắp xếp lại
-        final_results = []
-        for idx, score in enumerate(rerank_scores):
-            point = points_map[idx]
-            final_results.append({
-                "score": float(score), # Điểm Re-ranker (quan trọng hơn điểm cũ)
-                "title": point.payload.get('title'),
-                "text": point.payload.get('text'),
-                "category": point.payload.get('category'),
-                "url": point.payload.get('url'),
-                "initial_score": point.score # Điểm cũ để tham khảo
-            })
-        
-        # Sort giảm dần theo điểm Re-ranker
-        final_results.sort(key=lambda x: x['score'], reverse=True)
-        
-        # Cắt lấy Top K tốt nhất
-        return final_results[:top_k]
+    print(f"✅ Tìm thấy {len(results)} chunks. Top 1 score: {results[0].score:.4f}")
+    # In thử tiêu đề top 1 xem có đúng chủ đề không
+    print(f"   -> Top 1 Document: {results[0].payload['title']}")
 
-# --- TEST ---
+    # 2. Generation
+    messages = build_prompt(question, results)
+    
+    # 3. Call LLM
+    print("🤖 Đang suy nghĩ...")
+    answer = call_vnpt_llm(messages, model=Config.LLM_MODEL_LARGE) # Dùng Large cho chắc
+    
+    print("\n" + "="*50)
+    print("CÂU TRẢ LỜI CỦA MODEL:")
+    print(answer)
+    print("="*50)
+
 if __name__ == "__main__":
-    retriever = AdvancedRetriever()
-    
-    # Test câu hỏi gây nhiễu
-    q = "Chiến dịch Điện Biên Phủ diễn ra vào năm nào?"
-    print(f"\n❓ Câu hỏi: {q}")
-    
-    results = retriever.search(q, top_k=3)
-    
-    for i, r in enumerate(results):
-        print(f"\n--- Rank {i+1} (Re-rank Score: {r['score']:.4f}) ---")
-        print(f"📚 {r['title']}")
-        print(f"📝 {r['text']}")
+    # Test thử với dữ liệu Cư Bao bạn vừa index
+    # test_question = "Theo nghị quyết năm 2025, diện tích tự nhiên của phường Cư Bao mới là bao nhiêu?"
+    # Hoặc test câu trắc nghiệm
+    # test_question = "Đến năm 2025, phường Cư Bao thuộc đơn vị hành chính nào? \nA. Huyện Krông Búk\nB. Thị xã Buôn Hồ\nC. Thành phố Buôn Ma Thuột\nD. Tỉnh Đắk Nông"
+    test_question = "Hồ Chí Minh là ai?"
+    asyncio.run(run_test(test_question))
