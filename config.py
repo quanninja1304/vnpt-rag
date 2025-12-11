@@ -52,8 +52,8 @@ class Config:
     
     # --- 3. CHUNKING SETTINGS ---
     TOKENIZER_NAME = "bkai-foundation-models/vietnamese-bi-encoder" 
-    CHUNK_SIZE_TOKENS = 2048
-    CHUNK_OVERLAP_TOKENS = 256
+    CHUNK_SIZE_TOKENS = 512
+    CHUNK_OVERLAP_TOKENS = 128
 
     # --- 4. INDEXING & QDRANT SETTINGS ---
     COLLECTION_NAME = "vnpt_hackathon_rag"
