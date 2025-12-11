@@ -1,0 +1,234 @@
+2
+7
+11
+34
+35
+53
+57
+67
+72
+79
+86
+
+(quan) daai@debian:~/Documents/quan/vnpt-rag$ python3 test_infer.py
+2025-12-11 16:39:56,276 | INFO | REMAINING: 93/93 questions
+2025-12-11 16:39:57,009 | INFO | HTTP Request: GET https://70247b74-893b-48d1-9361-5e0f0535c1a0.us-east4-0.gcp.cloud.qdrant.io:6333 "HTTP/1.1 200 OK"
+2025-12-11 16:40:02,278 | INFO | BM25 loaded: 116881 chunks
+2025-12-11 16:40:03,345 | INFO | HTTP Request: POST https://70247b74-893b-48d1-9361-5e0f0535c1a0.us-east4-0.gcp.cloud.qdrant.io:6333/collections/vnpt_hackathon_rag/points/query "HTTP/1.1 200 OK"
+2025-12-11 16:40:48,057 | INFO | Q:val_0001 | Ans:B 1
+2025-12-11 16:40:50,085 | INFO | HTTP Request: POST https://70247b74-893b-48d1-9361-5e0f0535c1a0.us-east4-0.gcp.cloud.qdrant.io:6333/collections/vnpt_hackathon_rag/points/query "HTTP/1.1 200 OK"
+2025-12-11 16:41:05,790 | INFO | Q:val_0002 | Ans:D 0
+2025-12-11 16:41:07,758 | INFO | HTTP Request: POST https://70247b74-893b-48d1-9361-5e0f0535c1a0.us-east4-0.gcp.cloud.qdrant.io:6333/collections/vnpt_hackathon_rag/points/query "HTTP/1.1 200 OK"
+2025-12-11 16:41:13,067 | INFO | Q:val_0003 | Ans:B 1
+2025-12-11 16:41:15,053 | INFO | HTTP Request: POST https://70247b74-893b-48d1-9361-5e0f0535c1a0.us-east4-0.gcp.cloud.qdrant.io:6333/collections/vnpt_hackathon_rag/points/query "HTTP/1.1 200 OK"
+2025-12-11 16:41:23,415 | INFO | Q:val_0004 | Ans:B 1
+2025-12-11 16:41:25,400 | INFO | HTTP Request: POST https://70247b74-893b-48d1-9361-5e0f0535c1a0.us-east4-0.gcp.cloud.qdrant.io:6333/collections/vnpt_hackathon_rag/points/query "HTTP/1.1 200 OK"
+2025-12-11 16:41:31,117 | INFO | Q:val_0005 | Ans:C 1
+2025-12-11 16:41:33,115 | INFO | HTTP Request: POST https://70247b74-893b-48d1-9361-5e0f0535c1a0.us-east4-0.gcp.cloud.qdrant.io:6333/collections/vnpt_hackathon_rag/points/query "HTTP/1.1 200 OK"
+2025-12-11 16:41:37,724 | INFO | Q:val_0006 | Ans:C 1
+2025-12-11 16:41:39,694 | INFO | HTTP Request: POST https://70247b74-893b-48d1-9361-5e0f0535c1a0.us-east4-0.gcp.cloud.qdrant.io:6333/collections/vnpt_hackathon_rag/points/query "HTTP/1.1 200 OK"
+2025-12-11 16:42:01,217 | WARNING | ⚠️ Q:val_0007 Fallback -> vnptai_hackathon_large
+2025-12-11 16:42:03,006 | ERROR | 0 Q:val_0007 Failed all models -> Heuristic
+2025-12-11 16:42:03,006 | INFO | Q:val_0007 | Ans:D 0
+2025-12-11 16:42:04,972 | INFO | HTTP Request: POST https://70247b74-893b-48d1-9361-5e0f0535c1a0.us-east4-0.gcp.cloud.qdrant.io:6333/collections/vnpt_hackathon_rag/points/query "HTTP/1.1 200 OK"
+2025-12-11 16:42:09,240 | INFO | Q:val_0008 | Ans:B 1
+2025-12-11 16:42:11,205 | INFO | HTTP Request: POST https://70247b74-893b-48d1-9361-5e0f0535c1a0.us-east4-0.gcp.cloud.qdrant.io:6333/collections/vnpt_hackathon_rag/points/query "HTTP/1.1 200 OK"
+2025-12-11 16:42:44,046 | INFO | Q:val_0009 | Ans:B 1
+2025-12-11 16:42:46,083 | INFO | HTTP Request: POST https://70247b74-893b-48d1-9361-5e0f0535c1a0.us-east4-0.gcp.cloud.qdrant.io:6333/collections/vnpt_hackathon_rag/points/query "HTTP/1.1 200 OK"
+2025-12-11 16:43:23,884 | INFO | Q:val_0010 | Ans:A 1
+2025-12-11 16:43:25,953 | INFO | HTTP Request: POST https://70247b74-893b-48d1-9361-5e0f0535c1a0.us-east4-0.gcp.cloud.qdrant.io:6333/collections/vnpt_hackathon_rag/points/query "HTTP/1.1 200 OK"
+2025-12-11 16:44:07,502 | INFO | Q:val_0011 | Ans:A 0
+2025-12-11 16:44:09,468 | INFO | HTTP Request: POST https://70247b74-893b-48d1-9361-5e0f0535c1a0.us-east4-0.gcp.cloud.qdrant.io:6333/collections/vnpt_hackathon_rag/points/query "HTTP/1.1 200 OK"
+2025-12-11 16:44:16,654 | INFO | Q:val_0012 | Ans:B 1
+2025-12-11 16:44:18,600 | INFO | HTTP Request: POST https://70247b74-893b-48d1-9361-5e0f0535c1a0.us-east4-0.gcp.cloud.qdrant.io:6333/collections/vnpt_hackathon_rag/points/query "HTTP/1.1 200 OK"
+2025-12-11 16:44:24,237 | INFO | Q:val_0013 | Ans:D 1
+2025-12-11 16:44:26,181 | INFO | HTTP Request: POST https://70247b74-893b-48d1-9361-5e0f0535c1a0.us-east4-0.gcp.cloud.qdrant.io:6333/collections/vnpt_hackathon_rag/points/query "HTTP/1.1 200 OK"
+2025-12-11 16:44:35,200 | INFO | Q:val_0014 | Ans:A 1
+2025-12-11 16:44:37,218 | INFO | HTTP Request: POST https://70247b74-893b-48d1-9361-5e0f0535c1a0.us-east4-0.gcp.cloud.qdrant.io:6333/collections/vnpt_hackathon_rag/points/query "HTTP/1.1 200 OK"
+2025-12-11 16:45:08,586 | INFO | Q:val_0015 | Ans:A 1
+2025-12-11 16:45:10,633 | INFO | HTTP Request: POST https://70247b74-893b-48d1-9361-5e0f0535c1a0.us-east4-0.gcp.cloud.qdrant.io:6333/collections/vnpt_hackathon_rag/points/query "HTTP/1.1 200 OK"
+2025-12-11 16:45:18,829 | INFO | Q:val_0016 | Ans:B 1
+2025-12-11 16:45:20,775 | INFO | HTTP Request: POST https://70247b74-893b-48d1-9361-5e0f0535c1a0.us-east4-0.gcp.cloud.qdrant.io:6333/collections/vnpt_hackathon_rag/points/query "HTTP/1.1 200 OK"
+2025-12-11 16:45:26,571 | INFO | Q:val_0017 | Ans:D 1
+2025-12-11 16:45:28,545 | INFO | HTTP Request: POST https://70247b74-893b-48d1-9361-5e0f0535c1a0.us-east4-0.gcp.cloud.qdrant.io:6333/collections/vnpt_hackathon_rag/points/query "HTTP/1.1 200 OK"
+2025-12-11 16:45:34,590 | INFO | Q:val_0018 | Ans:D 1
+2025-12-11 16:45:36,542 | INFO | HTTP Request: POST https://70247b74-893b-48d1-9361-5e0f0535c1a0.us-east4-0.gcp.cloud.qdrant.io:6333/collections/vnpt_hackathon_rag/points/query "HTTP/1.1 200 OK"
+2025-12-11 16:46:12,155 | INFO | Q:val_0019 | Ans:B 1
+2025-12-11 16:46:14,172 | INFO | HTTP Request: POST https://70247b74-893b-48d1-9361-5e0f0535c1a0.us-east4-0.gcp.cloud.qdrant.io:6333/collections/vnpt_hackathon_rag/points/query "HTTP/1.1 200 OK"
+2025-12-11 16:46:19,928 | INFO | Q:val_0020 | Ans:C 1
+2025-12-11 16:46:21,855 | INFO | HTTP Request: POST https://70247b74-893b-48d1-9361-5e0f0535c1a0.us-east4-0.gcp.cloud.qdrant.io:6333/collections/vnpt_hackathon_rag/points/query "HTTP/1.1 200 OK"
+2025-12-11 16:46:27,643 | INFO | Q:val_0021 | Ans:D 1
+2025-12-11 16:46:29,606 | INFO | HTTP Request: POST https://70247b74-893b-48d1-9361-5e0f0535c1a0.us-east4-0.gcp.cloud.qdrant.io:6333/collections/vnpt_hackathon_rag/points/query "HTTP/1.1 200 OK"
+2025-12-11 16:46:36,070 | INFO | Q:val_0022 | Ans:D 1
+2025-12-11 16:46:38,015 | INFO | HTTP Request: POST https://70247b74-893b-48d1-9361-5e0f0535c1a0.us-east4-0.gcp.cloud.qdrant.io:6333/collections/vnpt_hackathon_rag/points/query "HTTP/1.1 200 OK"
+2025-12-11 16:46:43,391 | INFO | Q:val_0023 | Ans:A 1
+2025-12-11 16:46:45,449 | INFO | HTTP Request: POST https://70247b74-893b-48d1-9361-5e0f0535c1a0.us-east4-0.gcp.cloud.qdrant.io:6333/collections/vnpt_hackathon_rag/points/query "HTTP/1.1 200 OK"
+2025-12-11 16:46:53,973 | INFO | Q:val_0024 | Ans:A 1
+2025-12-11 16:46:55,908 | INFO | HTTP Request: POST https://70247b74-893b-48d1-9361-5e0f0535c1a0.us-east4-0.gcp.cloud.qdrant.io:6333/collections/vnpt_hackathon_rag/points/query "HTTP/1.1 200 OK"
+2025-12-11 16:47:02,846 | INFO | Q:val_0025 | Ans:B 1
+2025-12-11 16:47:04,820 | INFO | HTTP Request: POST https://70247b74-893b-48d1-9361-5e0f0535c1a0.us-east4-0.gcp.cloud.qdrant.io:6333/collections/vnpt_hackathon_rag/points/query "HTTP/1.1 200 OK"
+2025-12-11 16:47:11,549 | INFO | Q:val_0026 | Ans:B 1
+2025-12-11 16:47:13,495 | INFO | HTTP Request: POST https://70247b74-893b-48d1-9361-5e0f0535c1a0.us-east4-0.gcp.cloud.qdrant.io:6333/collections/vnpt_hackathon_rag/points/query "HTTP/1.1 200 OK"
+2025-12-11 16:47:24,013 | INFO | Q:val_0027 | Ans:C 1
+2025-12-11 16:47:26,024 | INFO | HTTP Request: POST https://70247b74-893b-48d1-9361-5e0f0535c1a0.us-east4-0.gcp.cloud.qdrant.io:6333/collections/vnpt_hackathon_rag/points/query "HTTP/1.1 200 OK"
+2025-12-11 16:47:31,645 | INFO | Q:val_0028 | Ans:B 1
+2025-12-11 16:47:33,594 | INFO | HTTP Request: POST https://70247b74-893b-48d1-9361-5e0f0535c1a0.us-east4-0.gcp.cloud.qdrant.io:6333/collections/vnpt_hackathon_rag/points/query "HTTP/1.1 200 OK"
+2025-12-11 16:47:39,983 | INFO | Q:val_0029 | Ans:A 1
+2025-12-11 16:47:42,045 | INFO | HTTP Request: POST https://70247b74-893b-48d1-9361-5e0f0535c1a0.us-east4-0.gcp.cloud.qdrant.io:6333/collections/vnpt_hackathon_rag/points/query "HTTP/1.1 200 OK"
+2025-12-11 16:47:47,215 | INFO | Q:val_0030 | Ans:B 1
+2025-12-11 16:47:49,244 | INFO | HTTP Request: POST https://70247b74-893b-48d1-9361-5e0f0535c1a0.us-east4-0.gcp.cloud.qdrant.io:6333/collections/vnpt_hackathon_rag/points/query "HTTP/1.1 200 OK"
+2025-12-11 16:47:55,845 | INFO | Q:val_0031 | Ans:C 1
+2025-12-11 16:47:57,857 | INFO | HTTP Request: POST https://70247b74-893b-48d1-9361-5e0f0535c1a0.us-east4-0.gcp.cloud.qdrant.io:6333/collections/vnpt_hackathon_rag/points/query "HTTP/1.1 200 OK"
+2025-12-11 16:48:28,746 | INFO | Q:val_0032 | Ans:B 1
+2025-12-11 16:48:30,717 | INFO | HTTP Request: POST https://70247b74-893b-48d1-9361-5e0f0535c1a0.us-east4-0.gcp.cloud.qdrant.io:6333/collections/vnpt_hackathon_rag/points/query "HTTP/1.1 200 OK"
+2025-12-11 16:48:43,460 | INFO | Q:val_0033 | Ans:C 1
+2025-12-11 16:48:45,390 | INFO | HTTP Request: POST https://70247b74-893b-48d1-9361-5e0f0535c1a0.us-east4-0.gcp.cloud.qdrant.io:6333/collections/vnpt_hackathon_rag/points/query "HTTP/1.1 200 OK"
+2025-12-11 16:48:51,111 | INFO | Q:val_0034 | Ans:D 0
+2025-12-11 16:48:53,039 | INFO | HTTP Request: POST https://70247b74-893b-48d1-9361-5e0f0535c1a0.us-east4-0.gcp.cloud.qdrant.io:6333/collections/vnpt_hackathon_rag/points/query "HTTP/1.1 200 OK"
+2025-12-11 16:48:59,530 | INFO | Q:val_0035 | Ans:C 0
+2025-12-11 16:49:01,538 | INFO | HTTP Request: POST https://70247b74-893b-48d1-9361-5e0f0535c1a0.us-east4-0.gcp.cloud.qdrant.io:6333/collections/vnpt_hackathon_rag/points/query "HTTP/1.1 200 OK"
+2025-12-11 16:49:07,197 | INFO | Q:val_0036 | Ans:B 1
+2025-12-11 16:49:09,171 | INFO | HTTP Request: POST https://70247b74-893b-48d1-9361-5e0f0535c1a0.us-east4-0.gcp.cloud.qdrant.io:6333/collections/vnpt_hackathon_rag/points/query "HTTP/1.1 200 OK"
+2025-12-11 16:49:14,450 | INFO | Q:val_0037 | Ans:C 1
+2025-12-11 16:49:16,404 | INFO | HTTP Request: POST https://70247b74-893b-48d1-9361-5e0f0535c1a0.us-east4-0.gcp.cloud.qdrant.io:6333/collections/vnpt_hackathon_rag/points/query "HTTP/1.1 200 OK"
+2025-12-11 16:49:41,924 | INFO | Q:val_0038 | Ans:B 1
+2025-12-11 16:49:43,923 | INFO | HTTP Request: POST https://70247b74-893b-48d1-9361-5e0f0535c1a0.us-east4-0.gcp.cloud.qdrant.io:6333/collections/vnpt_hackathon_rag/points/query "HTTP/1.1 200 OK"
+2025-12-11 16:49:49,914 | INFO | Q:val_0039 | Ans:B 1
+2025-12-11 16:49:51,860 | INFO | HTTP Request: POST https://70247b74-893b-48d1-9361-5e0f0535c1a0.us-east4-0.gcp.cloud.qdrant.io:6333/collections/vnpt_hackathon_rag/points/query "HTTP/1.1 200 OK"
+2025-12-11 16:49:58,667 | INFO | Q:val_0040 | Ans:E 1
+2025-12-11 16:50:00,680 | INFO | HTTP Request: POST https://70247b74-893b-48d1-9361-5e0f0535c1a0.us-east4-0.gcp.cloud.qdrant.io:6333/collections/vnpt_hackathon_rag/points/query "HTTP/1.1 200 OK"
+2025-12-11 16:50:08,529 | INFO | Q:val_0041 | Ans:C 1
+2025-12-11 16:50:10,497 | INFO | HTTP Request: POST https://70247b74-893b-48d1-9361-5e0f0535c1a0.us-east4-0.gcp.cloud.qdrant.io:6333/collections/vnpt_hackathon_rag/points/query "HTTP/1.1 200 OK"
+2025-12-11 16:50:16,586 | INFO | Q:val_0042 | Ans:B 1
+2025-12-11 16:50:18,594 | INFO | HTTP Request: POST https://70247b74-893b-48d1-9361-5e0f0535c1a0.us-east4-0.gcp.cloud.qdrant.io:6333/collections/vnpt_hackathon_rag/points/query "HTTP/1.1 200 OK"
+2025-12-11 16:50:29,185 | INFO | Q:val_0043 | Ans:D 1
+2025-12-11 16:50:31,149 | INFO | HTTP Request: POST https://70247b74-893b-48d1-9361-5e0f0535c1a0.us-east4-0.gcp.cloud.qdrant.io:6333/collections/vnpt_hackathon_rag/points/query "HTTP/1.1 200 OK"
+2025-12-11 16:50:37,071 | INFO | Q:val_0044 | Ans:C 1
+2025-12-11 16:50:39,075 | INFO | HTTP Request: POST https://70247b74-893b-48d1-9361-5e0f0535c1a0.us-east4-0.gcp.cloud.qdrant.io:6333/collections/vnpt_hackathon_rag/points/query "HTTP/1.1 200 OK"
+2025-12-11 16:51:13,856 | INFO | Q:val_0045 | Ans:C 1
+2025-12-11 16:51:15,856 | INFO | HTTP Request: POST https://70247b74-893b-48d1-9361-5e0f0535c1a0.us-east4-0.gcp.cloud.qdrant.io:6333/collections/vnpt_hackathon_rag/points/query "HTTP/1.1 200 OK"
+2025-12-11 16:51:43,778 | INFO | Q:val_0046 | Ans:B 1
+2025-12-11 16:51:45,718 | INFO | HTTP Request: POST https://70247b74-893b-48d1-9361-5e0f0535c1a0.us-east4-0.gcp.cloud.qdrant.io:6333/collections/vnpt_hackathon_rag/points/query "HTTP/1.1 200 OK"
+2025-12-11 16:51:56,027 | INFO | Q:val_0047 | Ans:A 1
+2025-12-11 16:51:58,034 | INFO | HTTP Request: POST https://70247b74-893b-48d1-9361-5e0f0535c1a0.us-east4-0.gcp.cloud.qdrant.io:6333/collections/vnpt_hackathon_rag/points/query "HTTP/1.1 200 OK"
+2025-12-11 16:52:39,718 | INFO | Q:val_0048 | Ans:A 1
+2025-12-11 16:52:41,703 | INFO | HTTP Request: POST https://70247b74-893b-48d1-9361-5e0f0535c1a0.us-east4-0.gcp.cloud.qdrant.io:6333/collections/vnpt_hackathon_rag/points/query "HTTP/1.1 200 OK"
+2025-12-11 16:52:46,371 | INFO | Q:val_0049 | Ans:B 1
+2025-12-11 16:52:48,348 | INFO | HTTP Request: POST https://70247b74-893b-48d1-9361-5e0f0535c1a0.us-east4-0.gcp.cloud.qdrant.io:6333/collections/vnpt_hackathon_rag/points/query "HTTP/1.1 200 OK"
+2025-12-11 16:52:55,434 | INFO | Q:val_0050 | Ans:C 1
+2025-12-11 16:52:57,393 | INFO | HTTP Request: POST https://70247b74-893b-48d1-9361-5e0f0535c1a0.us-east4-0.gcp.cloud.qdrant.io:6333/collections/vnpt_hackathon_rag/points/query "HTTP/1.1 200 OK"
+2025-12-11 16:53:04,150 | INFO | Q:val_0051 | Ans:A 1
+2025-12-11 16:53:06,085 | INFO | HTTP Request: POST https://70247b74-893b-48d1-9361-5e0f0535c1a0.us-east4-0.gcp.cloud.qdrant.io:6333/collections/vnpt_hackathon_rag/points/query "HTTP/1.1 200 OK"
+2025-12-11 16:53:12,984 | INFO | Q:val_0052 | Ans:C 1
+2025-12-11 16:53:15,015 | INFO | HTTP Request: POST https://70247b74-893b-48d1-9361-5e0f0535c1a0.us-east4-0.gcp.cloud.qdrant.io:6333/collections/vnpt_hackathon_rag/points/query "HTTP/1.1 200 OK"
+2025-12-11 16:53:49,475 | INFO | Q:val_0053 | Ans:B 0
+2025-12-11 16:53:51,452 | INFO | HTTP Request: POST https://70247b74-893b-48d1-9361-5e0f0535c1a0.us-east4-0.gcp.cloud.qdrant.io:6333/collections/vnpt_hackathon_rag/points/query "HTTP/1.1 200 OK"
+2025-12-11 16:53:57,951 | INFO | Q:val_0054 | Ans:C 1
+2025-12-11 16:53:59,907 | INFO | HTTP Request: POST https://70247b74-893b-48d1-9361-5e0f0535c1a0.us-east4-0.gcp.cloud.qdrant.io:6333/collections/vnpt_hackathon_rag/points/query "HTTP/1.1 200 OK"
+2025-12-11 16:54:06,234 | INFO | Q:val_0055 | Ans:A 1
+2025-12-11 16:54:08,171 | INFO | HTTP Request: POST https://70247b74-893b-48d1-9361-5e0f0535c1a0.us-east4-0.gcp.cloud.qdrant.io:6333/collections/vnpt_hackathon_rag/points/query "HTTP/1.1 200 OK"
+2025-12-11 16:54:23,354 | INFO | Q:val_0056 | Ans:D 1
+2025-12-11 16:54:25,382 | INFO | HTTP Request: POST https://70247b74-893b-48d1-9361-5e0f0535c1a0.us-east4-0.gcp.cloud.qdrant.io:6333/collections/vnpt_hackathon_rag/points/query "HTTP/1.1 200 OK"
+2025-12-11 16:54:31,802 | INFO | Q:val_0057 | Ans:B 0
+2025-12-11 16:54:33,743 | INFO | HTTP Request: POST https://70247b74-893b-48d1-9361-5e0f0535c1a0.us-east4-0.gcp.cloud.qdrant.io:6333/collections/vnpt_hackathon_rag/points/query "HTTP/1.1 200 OK"
+2025-12-11 16:54:39,791 | INFO | Q:val_0058 | Ans:A 1
+2025-12-11 16:54:41,772 | INFO | HTTP Request: POST https://70247b74-893b-48d1-9361-5e0f0535c1a0.us-east4-0.gcp.cloud.qdrant.io:6333/collections/vnpt_hackathon_rag/points/query "HTTP/1.1 200 OK"
+2025-12-11 16:54:49,596 | INFO | Q:val_0059 | Ans:A 1
+2025-12-11 16:54:51,565 | INFO | HTTP Request: POST https://70247b74-893b-48d1-9361-5e0f0535c1a0.us-east4-0.gcp.cloud.qdrant.io:6333/collections/vnpt_hackathon_rag/points/query "HTTP/1.1 200 OK"
+2025-12-11 16:55:28,375 | INFO | Q:val_0060 | Ans:B 1
+2025-12-11 16:55:30,429 | INFO | HTTP Request: POST https://70247b74-893b-48d1-9361-5e0f0535c1a0.us-east4-0.gcp.cloud.qdrant.io:6333/collections/vnpt_hackathon_rag/points/query "HTTP/1.1 200 OK"
+2025-12-11 16:55:36,804 | INFO | Q:val_0061 | Ans:D 1
+2025-12-11 16:55:38,787 | INFO | HTTP Request: POST https://70247b74-893b-48d1-9361-5e0f0535c1a0.us-east4-0.gcp.cloud.qdrant.io:6333/collections/vnpt_hackathon_rag/points/query "HTTP/1.1 200 OK"
+2025-12-11 16:56:08,373 | INFO | Q:val_0062 | Ans:C 1
+2025-12-11 16:56:10,440 | INFO | HTTP Request: POST https://70247b74-893b-48d1-9361-5e0f0535c1a0.us-east4-0.gcp.cloud.qdrant.io:6333/collections/vnpt_hackathon_rag/points/query "HTTP/1.1 200 OK"
+2025-12-11 16:56:41,349 | WARNING | ⚠️ API vnptai_hackathon_small Error 401
+2025-12-11 16:56:41,349 | WARNING | ⚠️ Q:val_0063 Fallback -> vnptai_hackathon_large
+2025-12-11 16:56:53,804 | INFO | Q:val_0063 | Ans:B 1
+2025-12-11 16:56:55,811 | INFO | HTTP Request: POST https://70247b74-893b-48d1-9361-5e0f0535c1a0.us-east4-0.gcp.cloud.qdrant.io:6333/collections/vnpt_hackathon_rag/points/query "HTTP/1.1 200 OK"
+2025-12-11 16:56:57,383 | WARNING | ⚠️ API vnptai_hackathon_small Error 401
+2025-12-11 16:56:57,383 | WARNING | ⚠️ Q:val_0064 Fallback -> vnptai_hackathon_large
+2025-12-11 16:57:07,749 | INFO | Q:val_0064 | Ans:A 1
+2025-12-11 16:57:09,687 | INFO | HTTP Request: POST https://70247b74-893b-48d1-9361-5e0f0535c1a0.us-east4-0.gcp.cloud.qdrant.io:6333/collections/vnpt_hackathon_rag/points/query "HTTP/1.1 200 OK"
+2025-12-11 16:57:12,399 | WARNING | ⚠️ API vnptai_hackathon_small Error 401
+2025-12-11 16:57:12,399 | WARNING | ⚠️ Q:val_0065 Fallback -> vnptai_hackathon_large
+2025-12-11 16:57:24,491 | INFO | Q:val_0065 | Ans:B 1
+2025-12-11 16:57:26,452 | INFO | HTTP Request: POST https://70247b74-893b-48d1-9361-5e0f0535c1a0.us-east4-0.gcp.cloud.qdrant.io:6333/collections/vnpt_hackathon_rag/points/query "HTTP/1.1 200 OK"
+2025-12-11 16:57:31,062 | WARNING | ⚠️ API vnptai_hackathon_small Error 401
+2025-12-11 16:57:31,062 | WARNING | ⚠️ Q:val_0066 Fallback -> vnptai_hackathon_large
+2025-12-11 16:57:41,891 | INFO | Q:val_0066 | Ans:E 1
+2025-12-11 16:57:43,844 | INFO | HTTP Request: POST https://70247b74-893b-48d1-9361-5e0f0535c1a0.us-east4-0.gcp.cloud.qdrant.io:6333/collections/vnpt_hackathon_rag/points/query "HTTP/1.1 200 OK"
+2025-12-11 16:57:45,778 | WARNING | ⚠️ API vnptai_hackathon_small Error 401
+2025-12-11 16:57:45,778 | WARNING | ⚠️ Q:val_0067 Fallback -> vnptai_hackathon_large
+2025-12-11 16:58:01,131 | INFO | Q:val_0067 | Ans:A 0
+2025-12-11 16:58:03,177 | INFO | HTTP Request: POST https://70247b74-893b-48d1-9361-5e0f0535c1a0.us-east4-0.gcp.cloud.qdrant.io:6333/collections/vnpt_hackathon_rag/points/query "HTTP/1.1 200 OK"
+2025-12-11 16:58:05,307 | WARNING | ⚠️ API vnptai_hackathon_small Error 401
+2025-12-11 16:58:05,307 | WARNING | ⚠️ Q:val_0068 Fallback -> vnptai_hackathon_large
+2025-12-11 16:58:18,025 | INFO | Q:val_0068 | Ans:C 1
+2025-12-11 16:58:20,016 | INFO | HTTP Request: POST https://70247b74-893b-48d1-9361-5e0f0535c1a0.us-east4-0.gcp.cloud.qdrant.io:6333/collections/vnpt_hackathon_rag/points/query "HTTP/1.1 200 OK"
+2025-12-11 16:58:22,187 | WARNING | ⚠️ API vnptai_hackathon_small Error 401
+2025-12-11 16:58:22,187 | WARNING | ⚠️ Q:val_0069 Fallback -> vnptai_hackathon_large
+2025-12-11 16:58:39,017 | INFO | Q:val_0069 | Ans:A 1
+2025-12-11 16:58:41,000 | INFO | HTTP Request: POST https://70247b74-893b-48d1-9361-5e0f0535c1a0.us-east4-0.gcp.cloud.qdrant.io:6333/collections/vnpt_hackathon_rag/points/query "HTTP/1.1 200 OK"
+2025-12-11 16:58:42,606 | WARNING | ⚠️ API vnptai_hackathon_small Error 401
+2025-12-11 16:58:42,606 | WARNING | ⚠️ Q:val_0070 Fallback -> vnptai_hackathon_large
+2025-12-11 16:58:49,280 | INFO | Q:val_0070 | Ans:D 1
+2025-12-11 16:58:51,237 | INFO | HTTP Request: POST https://70247b74-893b-48d1-9361-5e0f0535c1a0.us-east4-0.gcp.cloud.qdrant.io:6333/collections/vnpt_hackathon_rag/points/query "HTTP/1.1 200 OK"
+2025-12-11 16:58:54,289 | WARNING | ⚠️ API vnptai_hackathon_small Error 401
+2025-12-11 16:58:54,289 | WARNING | ⚠️ Q:val_0071 Fallback -> vnptai_hackathon_large
+2025-12-11 16:59:17,076 | INFO | Q:val_0071 | Ans:C 1
+2025-12-11 16:59:19,063 | INFO | HTTP Request: POST https://70247b74-893b-48d1-9361-5e0f0535c1a0.us-east4-0.gcp.cloud.qdrant.io:6333/collections/vnpt_hackathon_rag/points/query "HTTP/1.1 200 OK"
+2025-12-11 16:59:50,569 | WARNING | ⚠️ API vnptai_hackathon_small Error 401
+2025-12-11 16:59:50,569 | WARNING | ⚠️ Q:val_0072 Fallback -> vnptai_hackathon_large
+2025-12-11 17:00:05,938 | INFO | Q:val_0072 | Ans:A 0
+2025-12-11 17:00:07,931 | INFO | HTTP Request: POST https://70247b74-893b-48d1-9361-5e0f0535c1a0.us-east4-0.gcp.cloud.qdrant.io:6333/collections/vnpt_hackathon_rag/points/query "HTTP/1.1 200 OK"
+2025-12-11 17:00:09,314 | WARNING | ⚠️ API vnptai_hackathon_small Error 401
+2025-12-11 17:00:09,314 | WARNING | ⚠️ Q:val_0073 Fallback -> vnptai_hackathon_large
+2025-12-11 17:00:17,112 | INFO | Q:val_0073 | Ans:A 1
+2025-12-11 17:00:19,062 | INFO | HTTP Request: POST https://70247b74-893b-48d1-9361-5e0f0535c1a0.us-east4-0.gcp.cloud.qdrant.io:6333/collections/vnpt_hackathon_rag/points/query "HTTP/1.1 200 OK"
+2025-12-11 17:01:02,628 | INFO | Q:val_0074 | Ans:C 1
+2025-12-11 17:01:04,674 | INFO | HTTP Request: POST https://70247b74-893b-48d1-9361-5e0f0535c1a0.us-east4-0.gcp.cloud.qdrant.io:6333/collections/vnpt_hackathon_rag/points/query "HTTP/1.1 200 OK"
+2025-12-11 17:01:10,311 | INFO | Q:val_0075 | Ans:D 1
+2025-12-11 17:01:12,262 | INFO | HTTP Request: POST https://70247b74-893b-48d1-9361-5e0f0535c1a0.us-east4-0.gcp.cloud.qdrant.io:6333/collections/vnpt_hackathon_rag/points/query "HTTP/1.1 200 OK"
+2025-12-11 17:01:18,448 | INFO | Q:val_0076 | Ans:D 1
+2025-12-11 17:01:20,380 | INFO | HTTP Request: POST https://70247b74-893b-48d1-9361-5e0f0535c1a0.us-east4-0.gcp.cloud.qdrant.io:6333/collections/vnpt_hackathon_rag/points/query "HTTP/1.1 200 OK"
+2025-12-11 17:01:25,631 | INFO | Q:val_0077 | Ans:B 1
+2025-12-11 17:01:27,579 | INFO | HTTP Request: POST https://70247b74-893b-48d1-9361-5e0f0535c1a0.us-east4-0.gcp.cloud.qdrant.io:6333/collections/vnpt_hackathon_rag/points/query "HTTP/1.1 200 OK"
+2025-12-11 17:01:34,256 | INFO | Q:val_0078 | Ans:A 1
+2025-12-11 17:01:36,258 | INFO | HTTP Request: POST https://70247b74-893b-48d1-9361-5e0f0535c1a0.us-east4-0.gcp.cloud.qdrant.io:6333/collections/vnpt_hackathon_rag/points/query "HTTP/1.1 200 OK"
+2025-12-11 17:01:42,997 | INFO | Q:val_0079 | Ans:C 0
+2025-12-11 17:01:45,020 | INFO | HTTP Request: POST https://70247b74-893b-48d1-9361-5e0f0535c1a0.us-east4-0.gcp.cloud.qdrant.io:6333/collections/vnpt_hackathon_rag/points/query "HTTP/1.1 200 OK"
+2025-12-11 17:01:51,646 | INFO | Q:val_0080 | Ans:C 1
+2025-12-11 17:01:53,603 | INFO | HTTP Request: POST https://70247b74-893b-48d1-9361-5e0f0535c1a0.us-east4-0.gcp.cloud.qdrant.io:6333/collections/vnpt_hackathon_rag/points/query "HTTP/1.1 200 OK"
+2025-12-11 17:02:26,137 | INFO | Q:val_0081 | Ans:B 1
+2025-12-11 17:02:28,113 | INFO | HTTP Request: POST https://70247b74-893b-48d1-9361-5e0f0535c1a0.us-east4-0.gcp.cloud.qdrant.io:6333/collections/vnpt_hackathon_rag/points/query "HTTP/1.1 200 OK"
+2025-12-11 17:02:38,406 | INFO | Q:val_0082 | Ans:B 1
+2025-12-11 17:02:40,352 | INFO | HTTP Request: POST https://70247b74-893b-48d1-9361-5e0f0535c1a0.us-east4-0.gcp.cloud.qdrant.io:6333/collections/vnpt_hackathon_rag/points/query "HTTP/1.1 200 OK"
+2025-12-11 17:02:44,997 | INFO | Q:val_0083 | Ans:C 1
+2025-12-11 17:02:46,947 | INFO | HTTP Request: POST https://70247b74-893b-48d1-9361-5e0f0535c1a0.us-east4-0.gcp.cloud.qdrant.io:6333/collections/vnpt_hackathon_rag/points/query "HTTP/1.1 200 OK"
+2025-12-11 17:02:53,393 | INFO | Q:val_0084 | Ans:D 1
+2025-12-11 17:02:55,343 | INFO | HTTP Request: POST https://70247b74-893b-48d1-9361-5e0f0535c1a0.us-east4-0.gcp.cloud.qdrant.io:6333/collections/vnpt_hackathon_rag/points/query "HTTP/1.1 200 OK"
+2025-12-11 17:03:02,893 | INFO | Q:val_0085 | Ans:A 1
+2025-12-11 17:03:04,897 | INFO | HTTP Request: POST https://70247b74-893b-48d1-9361-5e0f0535c1a0.us-east4-0.gcp.cloud.qdrant.io:6333/collections/vnpt_hackathon_rag/points/query "HTTP/1.1 200 OK"
+2025-12-11 17:03:14,408 | INFO | Q:val_0086 | Ans:D 0
+2025-12-11 17:03:16,332 | INFO | HTTP Request: POST https://70247b74-893b-48d1-9361-5e0f0535c1a0.us-east4-0.gcp.cloud.qdrant.io:6333/collections/vnpt_hackathon_rag/points/query "HTTP/1.1 200 OK"
+2025-12-11 17:03:26,370 | INFO | Q:val_0087 | Ans:B 1
+2025-12-11 17:03:28,341 | INFO | HTTP Request: POST https://70247b74-893b-48d1-9361-5e0f0535c1a0.us-east4-0.gcp.cloud.qdrant.io:6333/collections/vnpt_hackathon_rag/points/query "HTTP/1.1 200 OK"
+2025-12-11 17:03:59,165 | INFO | Q:val_0088 | Ans:C 1
+2025-12-11 17:04:01,168 | INFO | HTTP Request: POST https://70247b74-893b-48d1-9361-5e0f0535c1a0.us-east4-0.gcp.cloud.qdrant.io:6333/collections/vnpt_hackathon_rag/points/query "HTTP/1.1 200 OK"
+2025-12-11 17:04:09,538 | INFO | Q:val_0089 | Ans:B 1
+2025-12-11 17:04:11,506 | INFO | HTTP Request: POST https://70247b74-893b-48d1-9361-5e0f0535c1a0.us-east4-0.gcp.cloud.qdrant.io:6333/collections/vnpt_hackathon_rag/points/query "HTTP/1.1 200 OK"
+2025-12-11 17:04:27,896 | INFO | Q:val_0090 | Ans:B 1
+2025-12-11 17:04:29,875 | INFO | HTTP Request: POST https://70247b74-893b-48d1-9361-5e0f0535c1a0.us-east4-0.gcp.cloud.qdrant.io:6333/collections/vnpt_hackathon_rag/points/query "HTTP/1.1 200 OK"
+2025-12-11 17:04:34,795 | INFO | Q:val_0091 | Ans:A 1
+2025-12-11 17:04:36,843 | INFO | HTTP Request: POST https://70247b74-893b-48d1-9361-5e0f0535c1a0.us-east4-0.gcp.cloud.qdrant.io:6333/collections/vnpt_hackathon_rag/points/query "HTTP/1.1 200 OK"
+2025-12-11 17:05:04,670 | INFO | Q:val_0092 | Ans:A 1
+2025-12-11 17:05:06,613 | INFO | HTTP Request: POST https://70247b74-893b-48d1-9361-5e0f0535c1a0.us-east4-0.gcp.cloud.qdrant.io:6333/collections/vnpt_hackathon_rag/points/query "HTTP/1.1 200 OK"
+2025-12-11 17:05:11,431 | INFO | Q:val_0093 | Ans:D 1
+2025-12-11 17:05:12,433 | INFO | BATCH COMPLETED!
+
+========================================
+TỔNG KẾT TOÀN BỘ (CUMULATIVE STATS)
+========================================
+Đã làm: 93/93 câu
+Đúng  : 82 câu
+Tỷ lệ : 88.17%
