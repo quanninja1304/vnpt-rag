@@ -22,7 +22,7 @@ class Config:
     CRAWL_OUTPUT_JSON = OUTPUT_DIR / "final_wikipedia_vietnam_full.json"
     CRAWL_OUTPUT_CSV = OUTPUT_DIR / "final_wikipedia_vietnam_full.csv"
     CRAWL_OUTPUT_PARQUET = OUTPUT_DIR / "final_wikipedia_vietnam_full.parquet"
-    
+    CRAWL_TEMP_JSONL = OUTPUT_DIR / "temp_raw_data.jsonl"
     # --- FILES QUẢN LÝ TRẠNG THÁI (NEW) ---
     # File lưu danh sách tiêu đề các bài đã được chunking xong
     CHUNKING_STATE_FILE = OUTPUT_DIR / "chunking_state.json"
