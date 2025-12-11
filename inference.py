@@ -32,36 +32,59 @@ logger = logging.getLogger("VNPT_BOT")
 # ==============================================================================
 # 1. SMART RATE LIMITER (Daily Quota Management)
 # ==============================================================================
-class SmartRateLimiter:
+# class SmartRateLimiter:
+#     """
+#     Rate limiter theo ngày với auto-recovery.
+#     Tự động đợi khi hết quota và reset sau 24h.
+#     """
+#     def __init__(self, daily_limit, buffer=0.9):
+#         self.daily_limit = int(daily_limit * buffer)  # Để buffer 10% an toàn
+#         self.requests_log = deque()
+#         self.lock = asyncio.Lock()
+    
+#     async def acquire(self):
+#         async with self.lock:
+#             now = datetime.now()
+#             cutoff = now - timedelta(days=1)
+            
+#             # Xóa các request cũ hơn 24h
+#             while self.requests_log and self.requests_log[0] < cutoff:
+#                 self.requests_log.popleft()
+            
+#             # Kiểm tra quota
+#             if len(self.requests_log) >= self.daily_limit:
+#                 oldest = self.requests_log[0]
+#                 sleep_time = (oldest - cutoff).total_seconds()
+#                 logger.warning(f"⏳ Daily limit reached ({self.daily_limit}). Sleeping {sleep_time:.0f}s")
+#                 await asyncio.sleep(sleep_time + 1)
+#                 return await self.acquire()  # Recursive check sau khi sleep
+            
+#             # Ghi nhận request
+#             self.requests_log.append(now)
+#             logger.debug(f"✅ Token acquired. Used: {len(self.requests_log)}/{self.daily_limit}")
+
+class SimpleRateLimiter:
     """
-    Rate limiter theo ngày với auto-recovery.
-    Tự động đợi khi hết quota và reset sau 24h.
+    Rate limiter đơn giản theo thời gian.
+    Đảm bảo khoảng cách tối thiểu giữa các request.
     """
-    def __init__(self, daily_limit, buffer=0.9):
-        self.daily_limit = int(daily_limit * buffer)  # Để buffer 10% an toàn
-        self.requests_log = deque()
+    def __init__(self, requests_per_minute=50):
+        self.min_interval = 60.0 / requests_per_minute  # giây giữa mỗi request
+        self.last_request_time = 0
         self.lock = asyncio.Lock()
     
     async def acquire(self):
         async with self.lock:
-            now = datetime.now()
-            cutoff = now - timedelta(days=1)
+            now = time.time()
+            time_since_last = now - self.last_request_time
             
-            # Xóa các request cũ hơn 24h
-            while self.requests_log and self.requests_log[0] < cutoff:
-                self.requests_log.popleft()
+            if time_since_last < self.min_interval:
+                sleep_time = self.min_interval - time_since_last
+                logger.debug(f"⏳ Rate limit: sleeping {sleep_time:.2f}s")
+                await asyncio.sleep(sleep_time)
             
-            # Kiểm tra quota
-            if len(self.requests_log) >= self.daily_limit:
-                oldest = self.requests_log[0]
-                sleep_time = (oldest - cutoff).total_seconds()
-                logger.warning(f"⏳ Daily limit reached ({self.daily_limit}). Sleeping {sleep_time:.0f}s")
-                await asyncio.sleep(sleep_time + 1)
-                return await self.acquire()  # Recursive check sau khi sleep
-            
-            # Ghi nhận request
-            self.requests_log.append(now)
-            logger.debug(f"✅ Token acquired. Used: {len(self.requests_log)}/{self.daily_limit}")
+            self.last_request_time = time.time()
+
 
 class EmbeddingRateLimiter:
     """Rate limiter theo phút cho embedding (300 req/phút)"""
@@ -88,15 +111,19 @@ class EmbeddingRateLimiter:
             self.requests_log.append(now)
 
 # Khởi tạo limiters
-LIMITER_LARGE = SmartRateLimiter(daily_limit=500)
-LIMITER_SMALL = SmartRateLimiter(daily_limit=1000)
-LIMITER_EMBED = EmbeddingRateLimiter(per_minute=300)
+# LIMITER_LARGE = SmartRateLimiter(daily_limit=500)
+# LIMITER_SMALL = SmartRateLimiter(daily_limit=1000)
+# LIMITER_EMBED = EmbeddingRateLimiter(per_minute=300)
+
+LIMITER_LARGE = SimpleRateLimiter(requests_per_minute=0.3)  # 1 req/3s = 20/min max
+LIMITER_SMALL = SimpleRateLimiter(requests_per_minute=0.6)  # 1 req/1.7s = 35/min max
+LIMITER_EMBED = SimpleRateLimiter(requests_per_minute=300)  # 300/min như cũ
 
 # ==============================================================================
 # 2. CONFIGURATION
 # ==============================================================================
-MAX_CONCURRENT_TASKS = 2  # Giảm xuống 2 để kiểm soát tốt hơn
-TIMEOUT_PER_QUESTION = 300  # 5 phút (có thời gian chờ rate limit)
+MAX_CONCURRENT_TASKS = 3  # Tăng từ 2 lên 3 (vì đã fix rate limiter)
+TIMEOUT_PER_QUESTION = 120  # Giảm từ 300s xuống 120s (2 phút)
 THRESHOLD_SMALL_CONTEXT = 20000  # Context < 20k chars -> dùng Small model
 TOP_K = 12
 ALPHA_VECTOR = 0.7
