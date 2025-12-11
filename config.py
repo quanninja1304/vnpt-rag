@@ -29,7 +29,8 @@ class Config:
     
     # File chứa các chunk MỚI NHẤT vừa sinh ra (Delta) - Dùng để Indexing
     LATEST_CHUNKS_FILE = OUTPUT_DIR / "delta_chunks_to_index.parquet"
-    
+    LAW_CHUNKS_FILE = OUTPUT_DIR / "1_manual_law_strict.parquet"
+
     # File chứa TOÀN BỘ chunks (Master) - Để lưu trữ lâu dài
     MASTER_CHUNKS_FILE = OUTPUT_DIR / "wiki_vn_chunks_master.parquet"
 
@@ -90,7 +91,7 @@ class Config:
     BATCH_SIZE = 256
     
     # [QUAN TRỌNG] Chuyển thành False để hỗ trợ nạp nối tiếp (Incremental)
-    FORCE_RECREATE = True
+    FORCE_RECREATE = False
 
     # Qdrant Connection
     USE_QDRANT_CLOUD = os.getenv("USE_CLOUD", "False").lower() == "true"

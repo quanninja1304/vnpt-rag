@@ -15,7 +15,7 @@ from config import Config
 RATE_LIMITER = AsyncLimiter(300, 60)
 
 # Số lượng Concurrent Workers (Async nhẹ nên có thể để 20-30)
-NUM_WORKERS = 30
+NUM_WORKERS = 15
 
 # Số lượng vector gom lại trước khi Upsert vào Qdrant
 UPSERT_BATCH_SIZE = 50
@@ -181,7 +181,7 @@ async def main():
     Config.setup_dirs()
 
     # 1. Load Data
-    input_file = Config.INDEXING_INPUT_FILE # File delta chunks
+    input_file = Config.LAW_CHUNKS_FILE # File delta chunks
     if not input_file.exists():
         print(f"❌ Không tìm thấy file input: {input_file}")
         print("💡 Hãy chạy chunking.py trước.")
