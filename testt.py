@@ -38,9 +38,9 @@ QUOTA_LARGE = 500
 QUOTA_SMALL = 1000
 
 # Constants
-THRESHOLD_SMALL_CONTEXT = 15000 
-TOP_K = 18
-ALPHA_VECTOR = 0.5
+THRESHOLD_SMALL_CONTEXT = 20000 
+TOP_K = 12
+ALPHA_VECTOR = 0.7
 BM25_FILE = Config.OUTPUT_DIR / "bm25_index.pkl"
 
 # Logging
@@ -117,40 +117,16 @@ def heuristic_answer(options_map):
     return max(options_map.items(), key=lambda x: len(str(x[1])))[0]
 
 def build_prompt(question, options_text, docs):
-    context = ""
-    for i, doc in enumerate(docs):
-        context += f"--- TÀI LIỆU #{i+1} ---\n{doc['text']}\n\n"
-
-    system_prompt = """Bạn là chuyên gia tư vấn và giải quyết các câu hỏi trắc nghiệm dựa trên bằng chứng thực tế.
-QUY TRÌNH SUY LUẬN:
-1. Đọc kỹ câu hỏi và từng lựa chọn (A, B, C, D).
-2. Tìm kiếm thông tin chính xác trong phần DỮ LIỆU khớp với các từ khóa trong câu hỏi.
-3. So sánh từng lựa chọn với DỮ LIỆU:
-   - Nếu dữ liệu ủng hộ lựa chọn nào, hãy trích dẫn ngắn gọn ý đó.
-   - Chú ý các bẫy về thời gian, địa điểm, con số (ví dụ: 1 bản vs 2 bản).
-   - Với câu hỏi "nguyên nhân/nguồn gốc", hãy tìm câu văn chứa quan hệ nhân quả (vì, do, từ đó...).
-4. Đưa ra kết luận cuối cùng.
-
-LƯU Ý ĐẶC BIỆT:
-- Nếu câu hỏi dạng "Tất cả các ý trên" hoặc "Cả A, B, C", hãy kiểm tra xem các ý lẻ có đúng không. Nếu 2 ý đúng trở lên -> Chọn đáp án tổng hợp.
-- Ưu tiên thông tin trong DỮ LIỆU hơn kiến thức bên ngoài.
-"""
-
-    user_prompt = f"""DỮ LIỆU THAM KHẢO:
-{context}
-
-CÂU HỎI: {question}
-
-CÁC LỰA CHỌN:
-{options_text}
-
-HÃY TRẢ LỜI THEO ĐÚNG ĐỊNH DẠNG SAU:
+    context = "".join([f"--- TÀI LIỆU #{i+1} ({d['title']}) ---\n{d['text']}\n\n" for i, d in enumerate(docs)])
+    sys_prompt = """Bạn là trợ lý AI chuyên gia (STEM & Xã hội).
+NHIỆM VỤ: Trả lời câu hỏi trắc nghiệm dựa trên dữ liệu.
+ĐỊNH DẠNG:
 ### SUY LUẬN:
-[Phân tích chi tiết của bạn tại đây, chỉ ra bằng chứng trong văn bản]
+[Phân tích ngắn]
 ### ĐÁP ÁN:
-[Chỉ viết 1 ký tự in hoa đại diện đáp án đúng: A, B, C hoặc D]"""
-    
-    return [{"role": "system", "content": system_prompt}, {"role": "user", "content": user_prompt}]
+[Chỉ viết 1 ký tự A, B, C...]"""
+    user_prompt = f"DỮ LIỆU:\n{context}\n\nCÂU HỎI: {question}\nLỰA CHỌN:\n{options_text}\n\nTRẢ LỜI THEO ĐÚNG ĐỊNH DẠNG:"
+    return [{"role": "system", "content": sys_prompt}, {"role": "user", "content": user_prompt}]
 
 # ==============================================================================
 # 2. RETRIEVER & API CLIENTS
@@ -162,7 +138,7 @@ class HybridRetriever:
         if BM25_FILE.exists():
             try:
                 with open(BM25_FILE, "rb") as f: self.bm25 = pickle.load(f)
-                logger.info(f"BM25 loaded: {len(self.bm25.get('chunk_ids', []))} chunks")
+                logger.info(f"✅ BM25 loaded: {len(self.bm25.get('chunk_ids', []))} chunks")
             except: pass
 
     async def search(self, session, query, top_k=TOP_K):
@@ -286,12 +262,12 @@ async def process_row_logic(session, retriever, row, stats):
     # 5. Extract
     if not raw:
         ans = heuristic_answer(opts)
-        logger.error(f"0 Q:{qid} Failed all models -> Heuristic")
+        logger.error(f"❌ Q:{qid} Failed all models -> Heuristic")
     else:
         ans = extract_answer_two_step(raw, opts)
 
     is_correct = (ans == true_label) if true_label else None
-    status = "1" if is_correct else ("0" if is_correct is False else "")
+    status = "✅" if is_correct else ("❌" if is_correct is False else "")
     logger.info(f"Q:{qid} | Ans:{ans} {status}")
     
     return {"qid": qid, "answer": ans, "is_correct": is_correct}
@@ -301,8 +277,7 @@ async def process_row_logic(session, retriever, row, stats):
 # ==============================================================================
 async def main():
     # 1. Load Data
-    # files = [Config.BASE_DIR / "data" / "val.json", Config.BASE_DIR / "data" / "test.json"]
-    files = [Config.BASE_DIR / "data" / "test.json"]
+    files = [Config.BASE_DIR / "data" / "val.json", Config.BASE_DIR / "data" / "test.json"]
     input_file = next((f for f in files if f.exists()), None)
     if not input_file: return
     with open(input_file, 'r', encoding='utf-8') as f: data = json.load(f)
@@ -313,17 +288,17 @@ async def main():
         try:
             df_done = pd.read_csv(OUTPUT_FILE)
             processed_ids = set(df_done['qid'].astype(str))
-            logger.info(f"RESUMING... Found {len(processed_ids)} processed questions.")
+            logger.info(f"🔄 RESUMING... Found {len(processed_ids)} processed questions.")
         except: pass
     
     # Lọc câu chưa làm
     data_to_process = [r for r in data if str(r.get('qid', r.get('id'))) not in processed_ids]
     
     if not data_to_process:
-        logger.info("ALL DONE! Nothing to process.")
+        logger.info("🎉 ALL DONE! Nothing to process.")
         return
 
-    logger.info(f"REMAINING: {len(data_to_process)}/{len(data)} questions")
+    logger.info(f"🔥 REMAINING: {len(data_to_process)}/{len(data)} questions")
 
     # 3. Setup
     qdrant_client = AsyncQdrantClient(url=Config.QDRANT_URL, api_key=Config.QDRANT_API_KEY, timeout=30)
@@ -355,69 +330,19 @@ async def main():
                     break # Success -> Next question
                     
                 except asyncio.TimeoutError:
-                    logger.warning(f"Timeout Q:{qid} (Attempt {attempt+1})")
+                    logger.warning(f"⏰ Timeout Q:{qid} (Attempt {attempt+1})")
                     if attempt == 2:
                         # Fail hẳn -> Ghi 'A' để lần sau không bị kẹt
                         pd.DataFrame([{"qid": qid, "answer": "A"}]).to_csv(OUTPUT_FILE, mode='a', header=not OUTPUT_FILE.exists(), index=False)
                 except Exception as e:
-                    logger.error(f"Error Q:{qid}: {e}")
+                    logger.error(f"💥 Error Q:{qid}: {e}")
                     await asyncio.sleep(5)
 
             # Nghỉ ngơi giữa các câu để server thở
             await asyncio.sleep(1)
 
     await qdrant_client.close()
-    logger.info("BATCH COMPLETED!")
-
-    if OUTPUT_FILE.exists():
-        print("\n" + "="*40)
-        print("TỔNG KẾT TOÀN BỘ (CUMULATIVE STATS)")
-        print("="*40)
-        
-        try:
-            # 1. Đọc toàn bộ kết quả đã lưu trong CSV
-            df_results = pd.read_csv(OUTPUT_FILE)
-            
-            # 2. Tạo từ điển đáp án đúng (Ground Truth) từ file input gốc
-            # Lưu ý: Chỉ lấy những câu có trường 'answer' (đề phòng file Test không có)
-            ground_truth = {
-                str(r.get('qid', r.get('id'))): str(r.get('answer')).strip() 
-                for r in data if r.get('answer')
-            }
-            
-            if not ground_truth:
-                print("Đây là tập Test (không có đáp án) -> Bỏ qua tính điểm.")
-            else:
-                correct_count = 0
-                total_checked = 0
-                
-                # 3. So khớp từng câu trong CSV với đáp án gốc
-                for _, row in df_results.iterrows():
-                    qid = str(row['qid'])
-                    # Chuyển về string và strip để so sánh chính xác
-                    pred = str(row['answer']).strip()
-                    
-                    if qid in ground_truth:
-                        total_checked += 1
-                        true_label = ground_truth[qid]
-                        
-                        # So sánh
-                        if pred == true_label:
-                            correct_count += 1
-                
-                # 4. In kết quả
-                if total_checked > 0:
-                    acc = (correct_count / total_checked) * 100
-                    print(f"Đã làm: {total_checked}/{len(ground_truth)} câu")
-                    print(f"Đúng  : {correct_count} câu")
-                    print(f"Tỷ lệ : {acc:.2f}%")
-                else:
-                    print("⚠️ Chưa có câu nào khớp ID với tập dữ liệu gốc.")
-                    
-        except Exception as e:
-            print(f"Lỗi tính điểm: {e}")
-
-        print(f"File kết quả: {OUTPUT_FILE}")
+    logger.info("✅ BATCH COMPLETED!")
 
 if __name__ == "__main__":
     if sys.platform == 'win32': asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
