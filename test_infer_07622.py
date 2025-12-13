@@ -57,103 +57,6 @@ logger = logging.getLogger("VNPT_BOT")
 # ==============================================================================
 # 1. CÁC HÀM XỬ LÝ (UTILS)
 # ==============================================================================
-def extract_answer_strict(text, options_map):
-    """Trích xuất đáp án từ output của LLM một cách chặt chẽ"""
-    valid_keys = list(options_map.keys())
-    if not text: return None
-    text = text.strip()
-    
-    # Các mẫu regex để bắt đáp án chuẩn
-    patterns = [
-        r'###\s*ĐÁP ÁN[:\s\n]*([A-Z])',  # Format chuẩn: ### ĐÁP ÁN: A
-        r'ĐÁP ÁN[:\s]*([A-Z])',          # Format lỏng: ĐÁP ÁN: A
-        r'CHỌN[:\s]*([A-Z])',            # Format: Chọn A
-        r'KẾT LUẬN[:\s]*([A-Z])',        # Format: Kết luận A
-        r'^([A-Z])\.$',                  # Chỉ trả về: A.
-        r'^([A-Z])$'                     # Chỉ trả về: A
-    ]
-    
-    # 1. Ưu tiên tìm theo pattern định sẵn
-    for p in patterns:
-        match = re.search(p, text, re.IGNORECASE)
-        if match and match.group(1).upper() in valid_keys: 
-            return match.group(1).upper()
-            
-    # 2. Fallback: Tìm ký tự in đậm cuối cùng (Markdown bold)
-    # Ví dụ: "Đáp án đúng là **A**"
-    matches = re.findall(r'\*\*([A-Z])\*\*', text)
-    if matches:
-        last_match = matches[-1].upper()
-        if last_match in valid_keys: 
-            return last_match
-    
-    # Nếu không tìm thấy gì thì trả về None để chuyển sang dùng Heuristic
-    return None
-
-
-def check_critical_question(question):
-    """Phát hiện các câu hỏi cần độ chính xác tuyệt đối (Toán, Luật, Số liệu)"""
-    q_lower = question.lower()
-    
-    # Nhóm 1: Luật pháp & Chế tài (Cần chính xác từng chữ)
-    legal = ["luật", "nghị định", "thông tư", "phạt", "tội", "án", "hiến pháp", "cơ quan", "thẩm quyền", "quy định"]
-    
-    # Nhóm 2: Số liệu & Thời gian (Cần chính xác con số)
-    facts = ["năm nào", "khi nào", "bao nhiêu", "số lượng", "tỉ lệ", "%", "lần đầu", "đạt mốc"]
-    
-    # Nhóm 3: Toán & Logic (Cần tính toán/suy luận)
-    stem = ["tính", "công thức", "hàm số", "lãi suất", "khấu hao", "dao động", "trung bình", "sin", "cos"]
-    
-    # Nhóm 4: Trích xuất (Extractive)
-    extract = ["theo đoạn", "trong văn bản", "ý nào sau đây", "chi tiết nào"]
-
-    critical_keywords = legal + facts + stem + extract
-    return any(k in q_lower for k in critical_keywords)
-
-def heuristic_answer_overlap(question, options_map):
-    """Chọn đáp án dựa trên độ trùng lặp từ khóa, có xử lý câu phủ định"""
-    q_lower = question.lower()
-    # Kiểm tra xem có phải câu hỏi tìm ý SAI không
-    is_negative = any(w in q_lower for w in ["không", "ngoại trừ", "sai", "trừ"])
-    
-    try:
-        q_tokens = set(word_tokenize(q_lower))
-        scores = {}
-        for key, text in options_map.items():
-            opt_tokens = set(word_tokenize(str(text).lower()))
-            scores[key] = len(q_tokens.intersection(opt_tokens))
-        
-        if not scores: return "A"
-
-        if is_negative:
-            # Với câu hỏi phủ định: Đáp án đúng thường KHÁC BIỆT nhất so với câu hỏi
-            # Hoặc an toàn hơn: Chọn câu DÀI NHẤT (thường câu đúng trong luật rất dài)
-            return max(options_map.items(), key=lambda x: len(str(x[1])))[0]
-        else:
-            # Câu hỏi thường: Chọn câu trùng nhiều từ khóa nhất
-            return max(scores, key=scores.get)
-    except:
-        return "A"
-    
-
-def build_simple_prompt(question, options_text, docs):
-    context = ""
-    for i, doc in enumerate(docs):
-        # Cắt ngắn context cho model small để tránh bị loạn
-        context += f"--- Tin {i+1} ---\n{doc['text'][:500]}\n\n"
-    
-    prompt = f"""Dựa vào văn bản bên dưới, hãy chọn 1 đáp án đúng nhất.
-Văn bản:
-{context}
-
-Câu hỏi: {question}
-Lựa chọn:
-{options_text}
-
-Yêu cầu: Chỉ trả lời duy nhất 1 ký tự in hoa (A, B, C hoặc D). Không giải thích gì thêm."""
-    return [{"role": "user", "content": prompt}]
-
-
 def is_sensitive_topic(question):
     q_lower = question.lower()
     blacklist = [
@@ -476,58 +379,6 @@ async def call_llm_generic(session, messages, model_name, stats, max_tokens=1024
 #     logger.info(f"Q:{qid} | Ans:{ans} {status}")
     
 #     return {"qid": qid, "answer": ans, "is_correct": is_correct}
-# async def process_row_logic(session, retriever, row, stats):
-#     qid = row.get('qid', row.get('id', 'unknown'))
-#     question = row.get('question', '')
-#     true_label = row.get('answer', None)
-#     opts = get_dynamic_options(row)
-#     opt_text = "\n".join([f"{k}. {v}" for k, v in opts.items()])
-
-#     # --- BƯỚC 1: KIỂM TRA NHẠY CẢM NÂNG CAO ---
-#     is_unsafe = check_keywords_sensitive(question)
-#     if is_unsafe == "SUSPICIOUS":
-#         # Nếu nghi ngờ, hỏi LLM xác nhận
-#         is_unsafe = await confirm_safety_with_llm(session, question)
-            
-#     if is_unsafe is True:
-#         ans = find_refusal_key(opts) or "A"
-#         logger.info(f"🚫 Q:{qid} Blocked by Safety Filter")
-#         return {"qid": qid, "answer": ans}
-
-#     # --- BƯỚC 2: TÌM KIẾM TÀI LIỆU ---
-#     docs = await retriever.search(session, question, top_k=15) # Giảm TopK xuống 15 để bớt nhiễu
-    
-#     # --- BƯỚC 3: XÂY DỰNG PROMPT MỚI ---
-#     msgs = build_cot_prompt(question, opt_text, docs) # Dùng hàm Prompt mới
-#     ctx_len = sum([len(d['text']) for d in docs])
-
-#     # --- BƯỚC 4: CHỌN MODEL ---
-#     model = Config.LLM_MODEL_LARGE
-#     if ctx_len < 12000: model = Config.LLM_MODEL_SMALL # Hạ ngưỡng xuống 12k
-
-#     # --- BƯỚC 5: GỌI API ---
-#     # Giảm temperature xuống 0.1 để model trả lời kiên định hơn
-#     raw = await call_llm_generic(session, msgs, model, stats)
-    
-#     if not raw:
-#         # Retry model khác nếu lỗi
-#         fallback = Config.LLM_MODEL_SMALL if model == Config.LLM_MODEL_LARGE else Config.LLM_MODEL_LARGE
-#         raw = await call_llm_generic(session, msgs, fallback, stats)
-
-#     # --- BƯỚC 6: TRÍCH XUẤT ĐÁP ÁN ---
-#     # Dùng hàm extract cũ của bạn hoặc logic regex mới
-#     match = re.search(r'###\s*ĐÁP ÁN[:\s\n]*([A-Z])', str(raw), re.IGNORECASE)
-#     if match:
-#         ans = match.group(1).upper()
-#     else:
-#         # Nếu không tìm thấy đáp án trong text -> Dùng Heuristic mới
-#         ans = heuristic_answer_overlap(question, opts)
-#         logger.warning(f"Q:{qid} Fallback Heuristic -> {ans}")
-
-#     # Log kết quả
-#     logger.info(f"Q:{qid} | Ans:{ans}")
-#     return {"qid": qid, "answer": ans}
-
 async def process_row_logic(session, retriever, row, stats):
     qid = row.get('qid', row.get('id', 'unknown'))
     question = row.get('question', '')
@@ -535,90 +386,50 @@ async def process_row_logic(session, retriever, row, stats):
     opts = get_dynamic_options(row)
     opt_text = "\n".join([f"{k}. {v}" for k, v in opts.items()])
 
-    # ==========================================================================
-    # BƯỚC 1: RETRIEVAL (TÌM KIẾM TRƯỚC ĐỂ LẤY NGỮ CẢNH)
-    # ==========================================================================
-    docs = await retriever.search(session, question, top_k=TOP_K)
-    context_text = " ".join([d['text'].lower() for d in docs])
-    ctx_len = len(context_text)
-
-    # ==========================================================================
-    # BƯỚC 2: SAFETY CHECK (CONTEXT-AWARE) - TĂNG ĐIỂM COMPULSORY
-    # ==========================================================================
-    is_unsafe = False
-    safety_status = check_keywords_sensitive(question) # Hàm check từ khóa cũ của bạn
-
-    if safety_status is True: # Hard ban (Sex, Phản động...) -> Chặn luôn
-        is_unsafe = True
-    elif safety_status == "SUSPICIOUS": # Soft ban (Giết, Ma túy...)
-        # Kiểm tra xem tài liệu tìm được có chứa từ khóa đó không?
-        # Ví dụ: Hỏi về "ma túy" mà tài liệu là "Luật phòng chống ma túy" -> AN TOÀN
-        sensitive_terms = ["giết", "ma túy", "vũ khí", "bạo lực", "chết", "tự tử"]
-        found_in_context = any(term in context_text for term in sensitive_terms if term in question.lower())
-        
-        if found_in_context:
-            is_unsafe = False # Có trong tài liệu luật -> OK
-        else:
-            # Không có trong tài liệu -> Hỏi LLM xác nhận lần cuối
-            is_unsafe = await confirm_safety_with_llm(session, question)
-
-    if is_unsafe:
+    # --- BƯỚC 1: KIỂM TRA NHẠY CẢM NÂNG CAO ---
+    is_unsafe = check_keywords_sensitive(question)
+    if is_unsafe == "SUSPICIOUS":
+        # Nếu nghi ngờ, hỏi LLM xác nhận
+        is_unsafe = await confirm_safety_with_llm(session, question)
+            
+    if is_unsafe is True:
         ans = find_refusal_key(opts) or "A"
-        logger.info(f"🚫 Q:{qid} Blocked (Safety)")
+        logger.info(f"🚫 Q:{qid} Blocked by Safety Filter")
         return {"qid": qid, "answer": ans}
 
-    # ==========================================================================
-    # BƯỚC 3: MODEL & PROMPT SELECTION - TĂNG ĐIỂM PRECISION
-    # ==========================================================================
-    use_large = False
+    # --- BƯỚC 2: TÌM KIẾM TÀI LIỆU ---
+    docs = await retriever.search(session, question, top_k=15) # Giảm TopK xuống 15 để bớt nhiễu
     
-    # Điều kiện dùng Large Model:
-    # 1. Context quá dài (Small đọc không hết)
-    # 2. Câu hỏi phủ định (Small hay trả lời sai cái này)
-    # 3. Câu hỏi Critical (Toán, Luật, Số liệu cần chính xác)
-    if (ctx_len >= 12000) or \
-       ("không" in question.lower() or "ngoại trừ" in question.lower()) or \
-       check_critical_question(question):
-        use_large = True
+    # --- BƯỚC 3: XÂY DỰNG PROMPT MỚI ---
+    msgs = build_cot_prompt(question, opt_text, docs) # Dùng hàm Prompt mới
+    ctx_len = sum([len(d['text']) for d in docs])
 
-    model = Config.LLM_MODEL_LARGE if use_large else Config.LLM_MODEL_SMALL
+    # --- BƯỚC 4: CHỌN MODEL ---
+    model = Config.LLM_MODEL_LARGE
+    if ctx_len < 12000: model = Config.LLM_MODEL_SMALL # Hạ ngưỡng xuống 12k
 
-    # Chọn Prompt phù hợp
-    if use_large:
-        # Large Model: Dùng Chain-of-Thought để suy luận kỹ
-        msgs = build_cot_prompt(question, opt_text, docs) 
-    else:
-        # Small Model: Dùng Prompt đơn giản để trích xuất nhanh
-        msgs = build_simple_prompt(question, opt_text, docs)
-
-    # ==========================================================================
-    # BƯỚC 4: INFERENCE & EXTRACTION
-    # ==========================================================================
+    # --- BƯỚC 5: GỌI API ---
+    # Giảm temperature xuống 0.1 để model trả lời kiên định hơn
     raw = await call_llm_generic(session, msgs, model, stats)
     
-    # Fallback nếu model chính lỗi
     if not raw:
+        # Retry model khác nếu lỗi
         fallback = Config.LLM_MODEL_SMALL if model == Config.LLM_MODEL_LARGE else Config.LLM_MODEL_LARGE
         raw = await call_llm_generic(session, msgs, fallback, stats)
 
-    # Xử lý Refusal (Nếu model bảo không biết)
-    refusal_phrases = ["không có thông tin", "không tìm thấy", "không được đề cập", "không đủ cơ sở"]
-    if raw and any(p in raw.lower() for p in refusal_phrases):
-        refusal_opt = find_refusal_key(opts)
-        if refusal_opt:
-            logger.info(f"⚠️ Q:{qid} Model IDK -> Chọn đáp án từ chối {refusal_opt}")
-            return {"qid": qid, "answer": refusal_opt}
-
-    # Trích xuất đáp án
-    ans = extract_answer_strict(raw, opts) # Dùng hàm extract nghiêm ngặt cũ
-    if not ans:
-        # Dùng Heuristic mới (Overlap/Length) thay vì mặc định chọn câu dài nhất
+    # --- BƯỚC 6: TRÍCH XUẤT ĐÁP ÁN ---
+    # Dùng hàm extract cũ của bạn hoặc logic regex mới
+    match = re.search(r'###\s*ĐÁP ÁN[:\s\n]*([A-Z])', str(raw), re.IGNORECASE)
+    if match:
+        ans = match.group(1).upper()
+    else:
+        # Nếu không tìm thấy đáp án trong text -> Dùng Heuristic mới
         ans = heuristic_answer_overlap(question, opts)
         logger.warning(f"Q:{qid} Fallback Heuristic -> {ans}")
 
+    # Log kết quả
     logger.info(f"Q:{qid} | Ans:{ans}")
     return {"qid": qid, "answer": ans}
-
 
 # ==============================================================================
 # 4. MAIN LOOP WITH RESUME
