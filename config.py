@@ -2,17 +2,32 @@
 from pathlib import Path
 import os
 from dotenv import load_dotenv
+from aiolimiter import AsyncLimiter
 
 load_dotenv()
+
+LIMITER_LARGE = AsyncLimiter(1, 95)   # 40 req/giờ
+LIMITER_SMALL = AsyncLimiter(1, 65)   # 60 req/giờ
+LIMITER_EMBED = AsyncLimiter(300, 60)  # 300 req/phút
+TIMEOUT_PER_QUESTION = 600
 
 class Config:
     """Centralized configuration"""
     # --- 1. DIRECTORIES & FILES ---
-    BASE_DIR = Path(__file__).parent
+    # BASE_DIR = Path("/code")
+    BASE_DIR = Path(__file__).resolve().parents[0]
     CACHE_DIR = BASE_DIR / "cache"
     LOGS_DIR = BASE_DIR / "logs"
-    OUTPUT_DIR = BASE_DIR / "output"
+    DEBUG_LOG_FILE = LOGS_DIR / "debug_trace.txt"
+    OUTPUT_DIR = BASE_DIR / "crawl_output"
+    CHUNKS_DIR = BASE_DIR / "output_batch_chunking"
     
+    # SUBMISSION OUTPUT_FILE
+    OUTPUT_FILE = BASE_DIR / "submission.csv"
+    DEBUG_LOG_FILE = LOGS_DIR / "debug_trace.txt"
+
+    BM25_FILE = BASE_DIR / "bm25_index.pkl"
+
     # Crawler Files
     ARTICLES_CACHE = CACHE_DIR / "articles_cache.json"
     CATEGORY_TREE = CACHE_DIR / "category_tree.json"
@@ -21,14 +36,15 @@ class Config:
     # Output của Crawler (Luôn là file chứa TOÀN BỘ dữ liệu thô)
     CRAWL_OUTPUT_JSON = OUTPUT_DIR / "final_wikipedia_vietnam_full.json"
     CRAWL_OUTPUT_CSV = OUTPUT_DIR / "final_wikipedia_vietnam_full.csv"
-    CRAWL_OUTPUT_PARQUET = OUTPUT_DIR / "final_wikipedia_vietnam_full.parquet"
+    CRAWL_OUTPUT_PARQUET = OUTPUT_DIR/ "final_wikipedia_vietnam_full.parquet"
     CRAWL_TEMP_JSONL = OUTPUT_DIR / "temp_raw_data.jsonl"
+    CRAWL_OUTPUT_VANBANPHAPLUATCO = OUTPUT_DIR / "vbpl_raw.parquet"
     # --- FILES QUẢN LÝ TRẠNG THÁI (NEW) ---
     # File lưu danh sách tiêu đề các bài đã được chunking xong
-    CHUNKING_STATE_FILE = OUTPUT_DIR / "chunking_state.json"
+    CHUNKING_STATE_FILE = CHUNKS_DIR / "chunking_state.json"
     
     # File chứa các chunk MỚI NHẤT vừa sinh ra (Delta) - Dùng để Indexing
-    LATEST_CHUNKS_FILE = OUTPUT_DIR / "delta_chunks_to_index.parquet"
+    LATEST_CHUNKS_FILE = CHUNKS_DIR / "delta_chunks_to_index.parquet"
     LAW_CHUNKS_FILE = OUTPUT_DIR / "1_manual_law_strict.parquet"
 
     # File chứa TOÀN BỘ chunks (Master) - Để lưu trữ lâu dài
@@ -69,7 +85,7 @@ class Config:
     LLM_MODEL_LARGE = "vnptai_hackathon_large"
     LLM_MODEL_SMALL = "vnptai_hackathon_small"
     MODEL_EMBEDDING_API = "vnptai_hackathon_embedding"
-
+    
     VNPT_CREDENTIALS = {
         # Config cho Large
         LLM_MODEL_LARGE: {
@@ -303,4 +319,186 @@ COMPREHENSIVE_CATEGORIES = [
     "Biểu_tượng_quốc_gia_Việt_Nam", "Quốc_kỳ_Việt_Nam", "Quốc_ca_Việt_Nam",
     "Quốc_huy_Việt_Nam", "Danh_sách_liên_quan_đến_Việt_Nam",
     "Việt_Nam", "Xã_hội_Việt_Nam", "Con_người_Việt_Nam",
+
+    # ========== TOÁN HỌC (50+ categories) ==========
+    "Toán_học", "Toán_học_ứng_dụng", "Toán_học_rời_rạc", "Toán_học_sơ_cấp",
+    "Toán_học_thuần_túy", "Nền_tảng_toán_học", "Lịch_sử_toán_học",
+    "Triết_học_toán_học", "Thuật_ngữ_toán_học", "Ký_hiệu_toán_học",
+    "Công_cụ_toán_học", "Phần_mềm_toán_học", "Sách_giáo_khoa_toán_học",
+    "Giải_thưởng_toán_học", "Nhà_toán_học", "Olympic_Toán_học",
+    "Giảng_dạy_toán_học", "Tư_duy_tính_toán", "Khoa_học_toán_học",
+    "Khoa_học_máy_tính", "Kinh_tế_lượng", "Thống_kê", "Xác_suất",
+    "Lý_thuyết_điều_khiển", "Lý_thuyết_số", "Tin_học_lý_thuyết",
+    "Vận_trù_học", "Mật_mã_học", "Phương_trình", "Bất_phương_trình",
+    "Phương_trình_Diophantine", "Đẳng_thức", "Định_lý_hình_học",
+    "Đạo_hàm", "Tích_phân", "Biến_đổi_Laplace", "Logarit",
+    "Hàm_số", "Dãy_số", "Ma_trận", "Vectơ", "Hình_học",
+    "Đồ_thị", "Lim", "Sqrt", "Sin", "Cos", "Tan",
+    "Cot", "Các_nghịch_lý_toán_học", "Tâm_tam_giác",
+    "Toán_học_và_nghệ_thuật", "Toán_học_và_văn_hóa",
+    "Sơ_khai_toán_học",
+
+    # ========== VẬT LÝ (60+ categories) ==========
+    "Vật_lý", "Vật_lý_học", "Vật_lý_ứng_dụng", "Vật_lý_lý_thuyết",
+    "Vật_lý_thực_nghiệm", "Vật_lý_tính_toán", "Lịch_sử_vật_lý",
+    "Nhà_vật_lý", "Giải_thưởng_vật_lý", "Thuật_ngữ_vật_lý",
+    "Ký_hiệu_vật_lý", "Công_cụ_vật_lý", "Phần_mềm_vật_lý",
+    "Cơ_học", "Cơ_học_cổ_điển", "Cơ_học_lượng_tử", "Cơ_học_thống_kê",
+    "Điện_từ_học", "Quang_học", "Nhiệt_động_học", "Vật_lý_hạt_nhân",
+    "Vật_lý_nguyên_tử", "Vật_lý_phân_tử", "Vật_lý_ngưng_tụ",
+    "Vật_lý_chất_rắn", "Vật_lý_chất_lỏng", "Vật_lý_plasma",
+    "Vật_lý_địa_cầu", "Vật_lý_thiên_văn", "Vật_lý_sinh_học",
+    "Vật_lý_y_học", "Vật_lý_hóa_học", "Vật_lý_môi_trường",
+    "Vận_tốc", "Gia_tốc", "Lực_học", "Năng_lượng", "Công_suất",
+    "Trọng_trường", "Gia_tốc_trọng_trường", "Mặt_phẳng_nghiêng",
+    "Sóng", "Bước_sóng", "Tần_số", "Biên_độ", "Giao_thoa",
+    "Thí_nghiệm_Young", "Khúc_xạ", "Phản_xạ", "Góc_tới",
+    "Đường_truyền_sóng", "Trở_kháng_đặc_trưng", "Điện_trở",
+    "Dòng_điện", "Điện_áp", "Cường_độ_dòng_điện", "Điện_xoay_chiều",
+    "Mạng_3_pha", "Công_suất_điện", "Watt_kế", "Sơ_khai_vật_lý",
+
+    # ========== HÓA HỌC (50+ categories) ==========
+    "Hóa_học", "Hóa_học_lý_thuyết", "Hóa_học_thực_nghiệm",
+    "Hóa_học_ứng_dụng", "Lịch_sử_hóa_học", "Nhà_hóa_học",
+    "Giải_thưởng_hóa_học", "Thuật_ngữ_hóa_học", "Ký_hiệu_hóa_học",
+    "Công_cụ_hóa_học", "Phần_mềm_hóa_học", "Phản_ứng_hóa_học",
+    "Phương_trình_hóa_học", "Tốc_độ_phản_ứng", "Xúc_tác",
+    "Năng_lượng_hóa_học", "Dung_dịch", "Dung_dịch_đệm",
+    "Dung_môi", "Huyền_phù", "Hỗn_hợp", "Hỗn_hợp_đẳng_phí",
+    "Axit", "Bazơ", "pH", "Hằng_số_tích_ion_nước", "Kw",
+    "Nồng_độ", "Mol", "Khối_lượng_mol", "Nguyên_tử_khối",
+    "Phân_tử_khối", "Hóa_trị", "Kiềm", "Kết_tủa",
+    "Cân_bằng_hóa_học", "Hóa_vô_cơ", "Hóa_hữu_cơ",
+    "Luyện_kim", "Điều_chế_kim_loại", "Hóa_học_sinh_học",
+    "Hóa_học_môi_trường", "Hóa_học_y_học", "Sơ_khai_hóa_học",
+
+    # ========== SINH HỌC (50+ categories) ==========
+    "Sinh_học", "Sinh_học_phân_tử", "Sinh_học_tế_bào",
+    "Sinh_học_phát_triển", "Sinh_học_tiến_hóa", "Lịch_sử_sinh_học",
+    "Nhà_sinh_học", "Giải_thưởng_sinh_học", "Thuật_ngữ_sinh_học",
+    "Công_cụ_sinh_học", "Phần_mềm_sinh_học", "Tế_bào",
+    "Cơ_quan", "Hệ_thống_cơ_thể", "Hệ_tuần_hoàn", "Máu",
+    "Hệ_hô_hấp", "Phế_nang", "Áp_suất_phế_nang", "Nội_tiết",
+    "Hormone", "Estrogen", "Thụ_thể_estrogen", "Thụ_thể_nội_tiết",
+    "Thụ_thể_nhân", "Sinh_học_môi_trường", "Sinh_học_y_học",
+    "Di_truyền_học", "Gen", "ADN", "ARN", "Protein",
+    "Enzyme", "Vi_sinh_vật_học", "Vi_khuẩn", "Virus",
+    "Động_vật_học", "Thực_vật_học", "Sinh_thái_học",
+    "Dân_số_học", "Sinh_học_tính_toán", "Sơ_khai_sinh_học",
+
+    # ========== KINH TẾ HỌC (60+ categories) ==========
+    "Kinh_tế_học", "Kinh_tế_vi_mô", "Kinh_tế_vĩ_mô",
+    "Kinh_tế_phát_triển", "Kinh_tế_quốc_tế", "Lịch_sử_kinh_tế_học",
+    "Nhà_kinh_tế_học", "Giải_thưởng_kinh_tế_học", "Thuật_ngữ_kinh_tế",
+    "Mô_hình_kinh_tế", "Lý_thuyết_trò_chơi", "Thế_nan_giải_người_tù",
+    "Độ_co_giãn", "Cầu_kinh_tế", "Cung_kinh_tế", "Giá_cả",
+    "Lạm_phát", "Tăng_trưởng_kinh_tế", "GDP", "Tăng_trưởng_GDP",
+    "Chi_phí_cơ_hội", "Lợi_nhuận", "Lãi_suất", "Lãi_kép",
+    "Tần_suất_tính_lãi_kép", "Trái_phiếu", "Cổ_phiếu", "Chứng_khoán",
+    "Tài_chính", "Kế_toán", "Khấu_hao", "Tỷ_số_nhanh",
+    "Bảng_cân_đối_kế_toán", "Dòng_tiền", "EOQ", "Lượng_đặt_hàng_tối_ưu",
+    "HHI", "Chỉ_số_Herfindahl-Hirschman", "Tập_trung_thị_trường",
+    "Kinh_tế_học_hành_vi", "Kinh_tế_lượng", "Sơ_khai_kinh_tế_học",
+
+    # ========== TIN HỌC (50+ categories) ==========
+    "Tin_học", "Khoa_học_máy_tính", "Tin_học_lý_thuyết",
+    "Lập_trình", "Ngôn_ngữ_lập_trình", "Java", "Phép_chia_số_nguyên",
+    "Hệ_điều_hành", "Phân_trang_bộ_nhớ", "Page_table",
+    "Mạng_máy_tính", "Socket", "Giao_thức_mạng", "Lịch_sử_tin_học",
+    "Nhà_tin_học", "Giải_thưởng_tin_học", "Thuật_ngữ_tin_học",
+    "Công_cụ_tin_học", "Phần_mềm_tin_học", "Thuật_toán",
+    "Cấu_trúc_dữ_liệu", "Cơ_sở_dữ_liệu", "Trí_tuệ_nhân_tạo",
+    "Học_máy", "An_ninh_mạng", "Mật_mã_học", "Sơ_khai_tin_học",
+
+    # ========== KỸ THUẬT ĐIỆN (40+ categories) ==========
+    "Kỹ_thuật_điện", "Điện_học", "Điện_tử_học", "Mạch_điện",
+    "Trở_kháng", "Điện_trở", "Điện_dung", "Điện_cảm",
+    "Điện_xoay_chiều", "Mạng_3_pha", "Nối_sao", "Nối_tam_giác",
+    "Công_suất_điện", "Watt_kế", "Đo_lường_điện",
+    "Đường_truyền_sóng", "Trở_kháng_đặc_trưng", "Điện_từ_học",
+    "Lịch_sử_kỹ_thuật_điện", "Nhà_kỹ_sư_điện", "Giải_thưởng_kỹ_thuật_điện",
+    "Thuật_ngữ_kỹ_thuật_điện", "Công_cụ_kỹ_thuật_điện",
+    "Phần_mềm_kỹ_thuật_điện", "Sơ_khai_kỹ_thuật_điện",
+
+    # ========== CÁC LĨNH VỰC BỔ SUNG (Để bao quát rộng hơn) ==========
+    "Khoa_học_tự_nhiên", "Khoa_học_xã_hội", "Khoa_học_máy_tính",
+    "Kỹ_thuật", "Kỹ_thuật_hóa_học", "Kỹ_thuật_sinh_học",
+    "Kỹ_thuật_môi_trường", "Khoa_học_dữ_liệu", "Thống_kê_ứng_dụng",
+    "Lý_thuyết_điều_khiển", "Vật_lý_y_học", "Hóa_học_sinh_học",
+    "Kinh_tế_tài_chính", "Quản_lý_chuỗi_cung_ứng", "Kế_toán_tài_chính",
+    "Lập_trình_ứng_dụng", "Hệ_thống_thông_tin", "An_toàn_thông_tin",
+    "Điện_tử_công_suất", "Hệ_thống_điện", "Kỹ_thuật_truyền_thông"
 ]
+
+# COMPREHENSIVE_CATEGORIES = [
+#     # ========== TOÁN HỌC (Đã chuẩn hóa tên Wiki) ==========
+#     "Toán_học", "Toán_học_ứng_dụng", "Toán_rời_rạc", "Lịch_sử_toán_học",
+#     "Triết_học_toán_học", "Ký_hiệu_toán_học", "Định_lý_toán_học",
+#     "Giải_thưởng_toán_học", "Nhà_toán_học", 
+#     "Đại_số", "Giải_tích", "Hình_học", "Lượng_giác", 
+#     "Xác_suất", "Thống_kê", "Lý_thuyết_số", "Lý_thuyết_đồ_thị",
+#     "Phương_trình", "Bất_đẳng_thức", "Đạo_hàm", "Tích_phân",
+#     "Ma_trận_(toán_học)", "Vectơ", "Hàm_số", "Dãy_số",
+#     "Số_học", "Tổ_hợp", "Logic_toán",
+
+#     # ========== VẬT LÝ (Đã chuẩn hóa) ==========
+#     "Vật_lý", "Vật_lý_học", "Cơ_học", "Điện_từ_học", "Quang_học", 
+#     "Nhiệt_động_lực_học", "Vật_lý_lượng_tử", "Thuyết_tương_đối",
+#     "Vật_lý_hạt_nhân", "Vật_lý_nguyên_tử", "Vật_lý_chất_rắn",
+#     "Thiên_văn_học", "Vũ_trụ_học", "Đơn_vị_đo_lường",
+#     "Định_luật_vật_lý", "Nhà_vật_lý", "Giải_Nobel_Vật_lý",
+#     # Các khái niệm cụ thể
+#     "Vận_tốc", "Gia_tốc", "Lực", "Năng_lượng", "Công_cơ_học",
+#     "Điện_trở", "Dòng_điện", "Điện_áp", "Từ_trường", 
+#     "Sóng_cơ", "Sóng_điện_từ", "Giao_thoa", "Nhiễu_xạ", "Khúc_xạ",
+#     "Mạch_điện", "Linh_kiện_điện_tử", 
+
+#     # ========== HÓA HỌC (Đã chuẩn hóa) ==========
+#     "Hóa_học", "Hóa_vô_cơ", "Hóa_hữu_cơ", "Hóa_lý", "Hóa_phân_tích",
+#     "Nguyên_tố_hóa_học", "Bảng_tuần_hoàn", "Hợp_chất_hóa_học",
+#     "Phản_ứng_hóa_học", "Liên_kết_hóa_học", "Cấu_tạo_nguyên_tử",
+#     "Axit", "Bazơ", "Muối_(hóa_học)", "Kim_loại", "Phi_kim",
+#     "Dung_dịch", "Điện_phân", "Hydrocarbon", "Polyme",
+#     "Nhà_hóa_học", "Giải_Nobel_Hóa_học",
+
+#     # ========== SINH HỌC & Y HỌC ==========
+#     "Sinh_học", "Di_truyền_học", "Tế_bào_học", "Vi_sinh_vật_học",
+#     "Sinh_thái_học", "Tiến_hóa", "Sinh_lý_học", "Giải_phẫu_học",
+#     "Thực_vật_học", "Động_vật_học", "Virus", "Vi_khuẩn",
+#     "ADN", "ARN", "Protein", "Enzyme", "Hormone",
+#     "Y_học", "Dược_học", "Bệnh_học", "Hệ_cơ_quan_người",
+#     "Miễn_dịch_học", "Thần_kinh_học", 
+
+#     # ========== KINH TẾ & TÀI CHÍNH (Rất quan trọng) ==========
+#     "Kinh_tế_học", "Kinh_tế_vi_mô", "Kinh_tế_vĩ_mô", 
+#     "Tài_chính", "Tiền_tệ", "Ngân_hàng", "Kế_toán", "Kiểm_toán",
+#     "Thị_trường_tài_chính", "Chứng_khoán", "Cổ_phiếu", "Trái_phiếu",
+#     "Quản_trị_kinh_doanh", "Marketing", "Thương_mại_quốc_tế",
+#     "Lạm_phát", "GDP", "Tăng_trưởng_kinh_tế", "Thuế",
+#     "Cung_và_cầu", "Chi_phí_cơ_hội", "Lý_thuyết_trò_chơi",
+#     "Kinh_tế_lượng", "Lịch_sử_kinh_tế", "Nhà_kinh_tế_học",
+
+#     # ========== CÔNG NGHỆ THÔNG TIN ==========
+#     "Khoa_học_máy_tính", "Công_nghệ_thông_tin", "Lập_trình_máy_tính",
+#     "Ngôn_ngữ_lập_trình", "Thuật_toán", "Cấu_trúc_dữ_liệu",
+#     "Hệ_điều_hành", "Mạng_máy_tính", "Internet", "An_toàn_thông_tin",
+#     "Cơ_sở_dữ_liệu", "Trí_tuệ_nhân_tạo", "Máy_học", "Phần_mềm",
+#     "Phần_cứng_máy_tính", "Mật_mã_học",
+
+#     # ========== KỸ THUẬT & CÔNG NGHỆ ==========
+#     "Kỹ_thuật", "Kỹ_thuật_điện", "Kỹ_thuật_cơ_khí", "Kỹ_thuật_xây_dựng",
+#     "Điện_tử_học", "Viễn_thông", "Tự_động_hóa", "Robot",
+#     "Vật_liệu_học", "Năng_lượng_tái_tạo", "Công_nghệ_nano",
+
+#     # ========== LUẬT PHÁP (Đại cương) ==========
+#     "Luật_học", "Pháp_luật", "Luật_dân_sự", "Luật_hình_sự",
+#     "Luật_hành_chính", "Luật_hiến_pháp", "Luật_quốc_tế",
+#     "Quyền_con_người", "Tòa_án", "Hệ_thống_pháp_luật",
+
+#     # ========== LỊCH SỬ & ĐỊA LÝ THẾ GIỚI ==========
+#     "Lịch_sử_thế_giới", "Chiến_tranh_thế_giới", "Chiến_tranh_lạnh",
+#     "Cách_mạng_Pháp", "Cách_mạng_tháng_Mười", "Lịch_sử_Trung_Quốc",
+#     "Lịch_sử_Châu_Âu", "Lịch_sử_Hoa_Kỳ", "Lịch_sử_Nhật_Bản",
+#     "Địa_lý_thế_giới", "Châu_Á", "Châu_Âu", "Châu_Mỹ", "Châu_Phi",
+#     "Đại_dương", "Khí_hậu", "Biến_đổi_khí_hậu"
+# ]

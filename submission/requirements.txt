@@ -1,0 +1,25 @@
+# --- Core RAG & Logic ---
+aiohttp
+aiolimiter
+qdrant-client
+bm25s
+underthesea
+rank-bm25        # (Lưu ý: Nếu bạn đã chuyển hoàn toàn sang bm25s thì có thể bỏ dòng này, nhưng giữ lại để an toàn nếu code cũ còn import)
+
+# --- Data Processing ---
+pandas
+pyarrow          # Bắt buộc để đọc/ghi file .parquet
+tqdm
+numpy
+scikit-learn     # Thường cần thiết cho các phép tính vector phụ trợ
+
+# --- Crawling & Parsing (Cho thư mục data_preparation) ---
+requests
+beautifulsoup4
+trafilatura
+wikipedia-api
+urllib3
+lxml             # Dependency giúp bs4/trafilatura chạy nhanh hơn
+
+# --- Text Splitting ---
+langchain-text-splitters

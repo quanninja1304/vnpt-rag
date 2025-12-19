@@ -1,0 +1,20 @@
+# Bỏ qua file cache của Python
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+
+# Bỏ qua file cấu hình git/IDE
+.git
+.gitignore
+.vscode
+.idea
+.env
+
+# Bỏ qua file log
+*.log
+
+# Bỏ qua các file dữ liệu thô nếu bạn lỡ để quên trong folder submission
+crawl_output/
+output_batch_chunking/
+vbpl_chunks_prod/

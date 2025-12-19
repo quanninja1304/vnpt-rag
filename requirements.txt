@@ -14,3 +14,5 @@ matplotlib
 requests 
 beautifulsoup4 
 trafilatura
+bm25s
+Stemmer==1.0.1

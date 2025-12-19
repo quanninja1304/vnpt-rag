@@ -101,3 +101,13 @@ Dockerfile
 
 logs/
 docs/
+
+# BM25 / Index artifacts
+bm25s_index/
+*.pkl
+*.npy
+
+*.npy
+*.pkl
+submission/resources/bm25s_index/
+old_bm25_index.pkl
