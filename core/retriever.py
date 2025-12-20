@@ -31,25 +31,34 @@ TRANSLATOR = str.maketrans(string.punctuation, ' ' * len(string.punctuation))
 
 class HybridRetriever:
     """
-    Production-Grade Hybrid Retriever (Vector + BM25s).
-    Features: RRF Fusion, Parallel Execution, Robust Error Handling.
+    Hybrid Retriever V2.1 - Network Stability Optimized
+    - Added Qdrant Semaphore (Throttling)
+    - Added Exponential Backoff
+    - Reduced Batch Size
     """
     
-    VECTOR_TIMEOUT = 10.0 
-    RETRIEVE_TIMEOUT = 5.0
-    BATCH_SIZE = 50 
+    VECTOR_TIMEOUT = 20.0  # Tăng lên chút cho chắc
+    RETRIEVE_TIMEOUT = 10.0
+    BATCH_SIZE = 20        # [FIX] Giảm batch size xuống 20 theo đề xuất
     RRF_K = 60
     
-    def __init__(self, qdrant_client, collection_name: str, 
-                 top_k: int = 5, alpha_vector: float = 0.5):
-        self.client = qdrant_client
+    def __init__(self, collection_name: str, top_k: int = 5, alpha_vector: float = 0.5):
+        # [FIX] Cấu hình Client HTTP ổn định (Tắt HTTP2, Tắt gRPC)
+        self.client = AsyncQdrantClient(
+            url=Config.QDRANT_URL, 
+            api_key=Config.QDRANT_API_KEY,
+            timeout=30.0,
+            prefer_grpc=False, 
+            http2=False
+        )
+        
         self.collection_name = collection_name
         self.top_k = top_k
-        
-        # [FIX 2] Validate Alpha
-        if not 0 <= alpha_vector <= 1:
-            raise ValueError(f"alpha_vector must be in [0, 1], got {alpha_vector}")
         self.alpha_vector = alpha_vector
+        
+        # [FIX] SEMAPHORE RIÊNG CHO QDRANT
+        # Dù bên ngoài chạy 8 luồng, nhưng chỉ cho phép 3 luồng chui vào Qdrant cùng lúc
+        self.qdrant_sem = asyncio.Semaphore(2) 
         
         self.bm25_retriever = None
         self.chunk_ids = [] 
@@ -58,45 +67,25 @@ class HybridRetriever:
         self._load_bm25s()
     
     def _load_bm25s(self) -> None:
-        index_dir = Config.BASE_DIR / "bm25s_index"
-        id_map_file = Config.BASE_DIR / "bm25s_ids.pkl"
-        meta_file = Config.BASE_DIR / "bm25_metadata.json"
+        index_dir = Config.BASE_DIR / "resources" / "bm25s_index"
+        id_map_file = Config.BASE_DIR / "resources" / "bm25s_ids.pkl"
         
-        if not index_dir.exists() or not id_map_file.exists():
-            logger.warning(f"❌ BM25s files not found at {index_dir}")
+        if not index_dir.exists():
+            logger.warning(f"❌ BM25s not found at {index_dir}")
             return
 
         try:
-            if meta_file.exists():
-                with open(meta_file, 'r', encoding='utf-8') as f:
-                    meta = json.load(f)
-                    logger.info(f"Checking BM25 Meta: Ver {meta.get('version')}")
-
             self.bm25_retriever = bm25s.BM25.load(str(index_dir), load_corpus=False, mmap=True)
-            
             with open(id_map_file, "rb") as f:
                 self.chunk_ids = pickle.load(f)
-                
             self.bm25_loaded = True
-            logger.info(f"✓ BM25s Loaded successfully: {len(self.chunk_ids)} docs")
-            
+            logger.info(f"✓ BM25s Loaded: {len(self.chunk_ids)} docs")
         except Exception as e:
-            logger.error(f"Failed to load BM25s: {e}", exc_info=True)
-            self.bm25_retriever = None
-            self.bm25_loaded = False
-
-    def get_stats(self) -> Dict:
-        return {
-            "bm25_loaded": self.bm25_loaded,
-            "bm25_chunks": len(self.chunk_ids) if self.bm25_loaded else 0,
-            "collection": self.collection_name,
-            "alpha": self.alpha_vector
-        }
+            logger.error(f"Failed to load BM25s: {e}")
 
     async def search(self, session, query: str, top_k: Optional[int] = None) -> List[Dict]:
         top_k = top_k or self.top_k
         
-        # 1. Parallel Search
         vec_task = self._vector_search(session, query, top_k)
         bm25_task = self._bm25_search(query, top_k)
         
@@ -104,53 +93,74 @@ class HybridRetriever:
             vec_task, bm25_task, return_exceptions=True
         )
         
-        # Error Handling
         if isinstance(vec_hits_map, Exception):
-            logger.error(f"Vector search crashed: {vec_hits_map}")
+            logger.error(f"Vector crash: {vec_hits_map}")
             vec_hits_map, vec_scores = {}, {}
         
         if isinstance(bm25_scores, Exception):
-            logger.error(f"BM25 search crashed: {bm25_scores}")
             bm25_scores = {}
         
-        # 2. Fetch Missing Text (Parallel Batched)
-        vec_hits_map, vec_scores = await self._fetch_missing_text_parallel(
+        vec_hits_map, vec_scores = await self._fetch_missing_text_optimized(
             vec_hits_map, vec_scores, bm25_scores
         )
         
-        # 3. Fusion
-        final_results = self._fuse_scores_rrf(vec_hits_map, vec_scores, bm25_scores)
-        
-        return final_results[:top_k]
+        return self._fuse_scores_rrf(vec_hits_map, vec_scores, bm25_scores)[:top_k]
     
     async def _vector_search(self, session, query: str, top_k: int) -> Tuple[Dict, Dict]:
         vec_hits_map = {}
         vec_scores = {}
         
         try:
+            # 1. Lấy embedding (Thường là gọi API khác hoặc local, giữ nguyên)
             query_vec = await get_embedding_async(session, query)
-            if not query_vec: return {}, {}
+            if not query_vec: 
+                return {}, {}
             
-            res = await asyncio.wait_for(
-                self.client.query_points(
-                    collection_name=self.collection_name,
-                    query=query_vec,
-                    limit=top_k * 2,
-                    with_payload=True
-                ),
-                timeout=self.VECTOR_TIMEOUT
-            )
-            
-            for point in res.points:
-                if not point.payload or 'chunk_id' not in point.payload: continue
-                cid = str(point.payload['chunk_id'])
-                vec_hits_map[cid] = point.payload
-                vec_scores[cid] = float(point.score)
-                
+            # [QUAN TRỌNG] Sử dụng Semaphore để tránh spam kết nối khi mạng đang nghẽn
+            async with self.qdrant_sem:
+                for attempt in range(3):
+                    try:
+                        # [TỐI ƯU 1] Giảm timeout mỗi lần thử để fail-fast và retry sớm
+                        # [TỐI ƯU 2] Chỉ lấy những field payload thực sự cần thiết để giảm dung lượng gói tin (rất quan trọng)
+                        res = await asyncio.wait_for(
+                            self.client.query_points(
+                                collection_name=self.collection_name,
+                                query=query_vec,
+                                limit=top_k, # Không lấy dư thừa top_k * 2
+                                with_payload=["text", "chunk_id", "title"], # [FIX] Không dùng True, chỉ lấy field cần
+                                search_params={"hnsw_ef": 64, "exact": False} # [FIX] Tăng tốc search, chấp nhận độ chính xác giảm nhẹ
+                            ),
+                            timeout=self.VECTOR_TIMEOUT
+                        )
+                        
+                        for point in res.points:
+                            if not point.payload: continue
+                            # Dùng .get để an toàn hơn
+                            cid = str(point.payload.get('chunk_id', ''))
+                            if cid:
+                                vec_hits_map[cid] = point.payload
+                                vec_scores[cid] = float(point.score)
+                        
+                        # Nếu có kết quả thì thoát vòng lặp retry ngay
+                        if vec_hits_map:
+                            return vec_hits_map, vec_scores
+                        
+                        # Nếu thành công nhưng rỗng (do filter hoặc dữ liệu), không cần retry
+                        break
+
+                    except (asyncio.TimeoutError, Exception) as e:
+                        # [TỐI ƯU 3] Giảm Backoff để không bị tích tụ thời gian chờ quá lâu
+                        wait_time = 1.5 ** attempt 
+                        if attempt < 2:
+                            logger.warning(f"⚠️ Vector search retry {attempt+1}/3 (Latency: {wait_time}s)")
+                            await asyncio.sleep(wait_time)
+                        else:
+                            logger.error(f"❌ Vector search GAVE UP sau 3 lần thử.")
+
         except Exception as e:
-            # [FIX 4] Better Logging context
-            logger.error(f"Vector search error for query '{query[:30]}...': {e}")
+            logger.error(f"🔥 Vector search fatal error: {e}")
         
+        # Trả về kết quả (có thể rỗng) để BM25 gánh phía sau, không làm crash toàn bộ pipeline
         return vec_hits_map, vec_scores
     
     async def _bm25_search(self, query: str, top_k: int) -> Dict[str, float]:
@@ -164,61 +174,64 @@ class HybridRetriever:
             
             if not query_tokens: return bm25_scores
             
-            # BM25s retrieve (Fast C++)
             doc_indices, doc_scores = self.bm25_retriever.retrieve([query_tokens], k=top_k * 2)
             
-            indices_list = doc_indices[0]
-            scores_list = doc_scores[0]
-            
-            for i, doc_idx in enumerate(indices_list):
-                score = float(scores_list[i])
+            for i, doc_idx in enumerate(doc_indices[0]):
+                score = float(doc_scores[0][i])
                 if score > 0:
-                    chunk_id = self.chunk_ids[doc_idx]
-                    bm25_scores[chunk_id] = score
+                    bm25_scores[self.chunk_ids[doc_idx]] = score
                     
-        except Exception as e:
-            logger.error(f"BM25s search error: {e}")
-            
+        except Exception:
+            pass
         return bm25_scores
     
-    async def _fetch_missing_text_parallel(self, vec_hits_map, vec_scores, bm25_scores):
+    async def _fetch_missing_text_optimized(self, vec_hits_map, vec_scores, bm25_scores):
         """
-        [FIX 3] Parallel Batch Fetching
+        [FIX] Optimized Batch Fetching:
+        - Sequential Batches (Tuần tự)
+        - Smaller Batch Size (20)
+        - Retry with Backoff
         """
         missing_ids = [cid for cid in bm25_scores.keys() if cid not in vec_hits_map]
         if not missing_ids: return vec_hits_map, vec_scores
         
-        # Chia batch
+        # Chia batch nhỏ (20 items)
         batches = [missing_ids[i:i + self.BATCH_SIZE] for i in range(0, len(missing_ids), self.BATCH_SIZE)]
         
-        async def fetch_batch(batch_ids):
-            try:
-                point_ids = [generate_uuid5(cid) for cid in batch_ids]
-                points = await self.client.retrieve(
-                    collection_name=self.collection_name,
-                    ids=point_ids,
-                    with_payload=True
-                )
-                return points
-            except Exception as e:
-                logger.error(f"Fetch batch error: {e}")
-                return []
+        for batch_ids in batches:
+            point_ids = [generate_uuid5(cid) for cid in batch_ids]
+            
+            # Dùng Semaphore để giới hạn cả việc fetch
+            async with self.qdrant_sem:
+                for attempt in range(3):
+                    try:
+                        points = await asyncio.wait_for(
+                            self.client.retrieve(
+                                collection_name=self.collection_name,
+                                ids=point_ids,
+                                with_payload=True
+                            ),
+                            timeout=self.RETRIEVE_TIMEOUT
+                        )
+                        
+                        for point in points:
+                            if point.payload:
+                                cid = str(point.payload['chunk_id'])
+                                vec_hits_map[cid] = point.payload
+                                if cid not in vec_scores: vec_scores[cid] = 0.0
+                        
+                        break # Thành công -> Thoát
+                    
+                    except Exception as e:
+                        wait_time = 1 * (attempt + 1)
+                        # logger.warning(f"Batch fetch retry {attempt+1} in {wait_time}s")
+                        await asyncio.sleep(wait_time)
+                        
+                        if attempt == 2:
+                            logger.error(f"Batch fetch GAVE UP: {e}")
 
-        # Chạy song song các batch
-        results = await asyncio.gather(*[fetch_batch(b) for b in batches], return_exceptions=True)
-        
-        # Merge results
-        for res_list in results:
-            if isinstance(res_list, list):
-                for point in res_list:
-                    if point.payload and 'chunk_id' in point.payload:
-                        cid = str(point.payload['chunk_id'])
-                        vec_hits_map[cid] = point.payload
-                        if cid not in vec_scores:
-                            vec_scores[cid] = 0.0 # Vector score = 0
-                            
         return vec_hits_map, vec_scores
-    
+
     def _fuse_scores_rrf(self, vec_hits_map, vec_scores, bm25_scores) -> List[Dict]:
         def get_ranks(scores_dict):
             sorted_keys = sorted(scores_dict.keys(), key=lambda x: scores_dict[x], reverse=True)
@@ -241,11 +254,10 @@ class HybridRetriever:
             
             final_score = score_v * self.alpha_vector + score_b * (1 - self.alpha_vector)
             
-            payload = vec_hits_map[cid]
             final_results.append({
                 "chunk_id": cid,
-                "text": payload.get('text', ''),
-                "title": payload.get('title', ''),
+                "text": vec_hits_map[cid].get('text', ''),
+                "title": vec_hits_map[cid].get('title', ''),
                 "score": final_score
             })
             

@@ -210,3 +210,89 @@ def _create_blocked_result(reason, options_map):
         "tag": f"BLOCKED-{reason}", "refusal_key": key if key else "A", "refusal_type": "SAFETY"
     }
 
+
+# debug
+from utils.text_utils import get_dynamic_options
+import asyncio
+import aiohttp
+import json
+import pandas as pd
+import sys
+import os
+
+async def run_router_check():
+    # 1. Đọc dữ liệu
+    input_path = "core/test.json"
+    output_path = "router_check_results.csv"
+    
+    print(f"Dang doc file: {input_path}")
+    if not os.path.exists(input_path):
+        print(f"Khong tim thay file input: {input_path}")
+        return
+
+    with open(input_path, 'r', encoding='utf-8') as f:
+        data = json.load(f)
+
+    print(f"Tong so cau hoi: {len(data)}")
+    
+    results = []
+    
+    # 2. Chạy Router
+    # Limit connection để tránh quá tải API khi test
+    conn = aiohttp.TCPConnector(limit=5)
+    
+    async with aiohttp.ClientSession(connector=conn) as session:
+        for i, row in enumerate(data):
+            qid = row.get('qid', row.get('id', f'q_{i}'))
+            question = row.get('question', '')
+            opts = get_dynamic_options(row)
+
+            try:
+                # Gọi hàm router
+                route = await unified_router_v3(session, question, opts)
+                
+                # In log đơn giản ra màn hình
+                tag = route.get('tag', 'UNKNOWN')
+                is_unsafe = route.get('is_unsafe', False)
+                print(f"[{i+1}/{len(data)}] {qid} -> {tag} | Unsafe: {is_unsafe}")
+
+                # Lưu kết quả
+                results.append({
+                    "qid": qid,
+                    "question": question[:100], # Cắt ngắn cho dễ nhìn file excel
+                    "is_unsafe": is_unsafe,
+                    "tag": tag,
+                    "use_large": route.get('use_large', False),
+                    "is_stem": route.get('is_stem', False),
+                    "refusal_key": route.get('refusal_key', ''),
+                    "refusal_type": route.get('refusal_type', '')
+                })
+                
+                # Nghỉ xíu để tránh spam
+                await asyncio.sleep(0.2)
+
+            except Exception as e:
+                print(f"Loi tai {qid}: {e}")
+
+    # 3. Xuất báo cáo
+    df = pd.DataFrame(results)
+    df.to_csv(output_path, index=False, encoding='utf-8-sig')
+
+    print("\n--- TONG KET ---")
+    print(f"Da luu ket qua tai: {output_path}")
+    print(f"Tong so: {len(df)}")
+    print(f"So cau bi CHAN (Unsafe): {len(df[df['is_unsafe'] == True])}")
+    print(f"So cau dung Large Model: {len(df[df['use_large'] == True])}")
+    print(f"So cau dung Small Model: {len(df[df['use_large'] == False])}")
+
+    # In ra danh sách các câu bị chặn để review nhanh
+    blocked = df[df['is_unsafe'] == True]
+    if not blocked.empty:
+        print("\n--- DANH SACH CAU BI CHAN ---")
+        for _, row in blocked.iterrows():
+            print(f"{row['qid']}: {row['tag']} (Refusal: {row['refusal_key']})")
+
+if __name__ == "__main__":
+    if sys.platform == 'win32':
+        asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+    asyncio.run(run_router_check())

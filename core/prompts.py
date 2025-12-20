@@ -180,14 +180,11 @@ HÃY SUY LUẬN VÀ TRẢ LỜI THEO ĐÚNG QUY TRÌNH:"""
 
 def build_simple_prompt(question, options_text, docs):
     context = ""
-    # [FIX 1] Tối ưu Context: Model Small 32k chịu tải tốt.
-    # Tăng giới hạn cắt từ 1500 -> 3500 ký tự để không bị mất thông tin ở đuôi văn bản.
     for i, doc in enumerate(docs[:8]): 
         clean_text = " ".join(doc['text'].split()) # Xóa khoảng trắng thừa/xuống dòng
         clean_text = clean_text[:3500] # Lấy nhiều hơn để an toàn
         context += f"--- TÀI LIỆU #{i+1} ---\n{clean_text}\n\n"
 
-    # [FIX 2] Xóa thụt đầu dòng (Indentation) để prompt sạch sẽ, tiết kiệm token
     system_prompt = """Bạn là trợ lý AI thông minh, nhiệm vụ là chọn 1 đáp án ĐÚNG NHẤT cho câu hỏi trắc nghiệm.
 === QUY TẮC BẮT BUỘC (ƯU TIÊN THEO THỨ TỰ) ===
 
