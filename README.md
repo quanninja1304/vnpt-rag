@@ -279,16 +279,6 @@ A production-grade, data-centric RAG system that treats retrieval as an engineer
 
 ---
 
-## 🤖 Validation: The Engineering Lift
-
-| Metric              | Standard RAG | Adaptive Router V7 | Lift |
-|--------------------|--------------|--------------------|------|
-| Safety Accuracy     | 72%          | 98%                | +36% |
-| Avg Latency / Query | 1m 45s       | 42s                | -60% |
-| Hallucination Rate  | 18%          | <2%                | Significant |
-
----
-
 ```text
 📦 submission/
 ├── core/                       # Core RAG Intelligence Layer
@@ -315,14 +305,15 @@ A production-grade, data-centric RAG system that treats retrieval as an engineer
 │       └── indexing.py         # Async vector upsert to Qdrant
 │
 ├── resources/                  # Prebuilt indices & static assets (used at inference)
-│   └── bm25s_index/
-│       ├── data.csc.index.npy
-│       ├── indices.csc.index.npy
-│       ├── indptr.csc.index.npy
-│       ├── vocab.index.json
-│       ├── params.index.json
-│       ├── bm25_metadata.json
-│       └── bm25_ids.pkl
+│   ├── bm25s_index/             # BM25s sparse index (memory-mapped)
+│   │   ├── data.csc.index.npy
+│   │   ├── indices.csc.index.npy
+│   │   ├── indptr.csc.index.npy
+│   │   ├── params.index.json
+│   │   └── vocab.index.json
+│   │
+│   ├── bm25_metadata.json       # Global BM25 metadata (doc mapping, stats)
+│   └── bm25_ids.pkl             # Chunk ID ↔ document ID mapping
 │
 ├── utils/                      # Shared utilities
 │   ├── __init__.py
@@ -335,8 +326,7 @@ A production-grade, data-centric RAG system that treats retrieval as an engineer
 ├── predict.py                  # Main inference entry point (used by judges)
 ├── inference.sh                # One-command execution script
 ├── requirements.txt            # Dependency list
-├── Dockerfile                  # Reproducible runtime environment
-└── test.json                   # Sample input for validation
+└── Dockerfile                  # Reproducible runtime environment
 
 ```
 
