@@ -1,6 +1,11 @@
 import os
 from pathlib import Path
 from aiolimiter import AsyncLimiter
+from dotenv import load_dotenv
+
+BASE_DIR = Path(__file__).resolve().parent
+load_dotenv(BASE_DIR / ".env")
+
 
 # --- CẤU HÌNH RATE LIMIT (Tuân thủ luật BTC) ---
 LIMITER_LARGE = AsyncLimiter(100, 60)   # Tăng từ 1 lên 100 req/phút

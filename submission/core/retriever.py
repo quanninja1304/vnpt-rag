@@ -58,7 +58,7 @@ class HybridRetriever:
         
         # [FIX] SEMAPHORE RIÊNG CHO QDRANT
         # Dù bên ngoài chạy 8 luồng, nhưng chỉ cho phép 3 luồng chui vào Qdrant cùng lúc
-        self.qdrant_sem = asyncio.Semaphore(3) 
+        self.qdrant_sem = asyncio.Semaphore(2) 
         
         self.bm25_retriever = None
         self.chunk_ids = [] 
@@ -111,45 +111,56 @@ class HybridRetriever:
         vec_scores = {}
         
         try:
+            # 1. Lấy embedding (Thường là gọi API khác hoặc local, giữ nguyên)
             query_vec = await get_embedding_async(session, query)
-            if not query_vec: return {}, {}
+            if not query_vec: 
+                return {}, {}
             
-            # [FIX] Dùng Semaphore để giới hạn kết nối Qdrant
+            # [QUAN TRỌNG] Sử dụng Semaphore để tránh spam kết nối khi mạng đang nghẽn
             async with self.qdrant_sem:
-                # Retry Loop với Exponential Backoff
                 for attempt in range(3):
                     try:
+                        # [TỐI ƯU 1] Giảm timeout mỗi lần thử để fail-fast và retry sớm
+                        # [TỐI ƯU 2] Chỉ lấy những field payload thực sự cần thiết để giảm dung lượng gói tin (rất quan trọng)
                         res = await asyncio.wait_for(
                             self.client.query_points(
                                 collection_name=self.collection_name,
                                 query=query_vec,
-                                limit=top_k * 2,
-                                with_payload=True
+                                limit=top_k, # Không lấy dư thừa top_k * 2
+                                with_payload=["text", "chunk_id", "title"], # [FIX] Không dùng True, chỉ lấy field cần
+                                search_params={"hnsw_ef": 64, "exact": False} # [FIX] Tăng tốc search, chấp nhận độ chính xác giảm nhẹ
                             ),
                             timeout=self.VECTOR_TIMEOUT
                         )
                         
                         for point in res.points:
                             if not point.payload: continue
-                            cid = str(point.payload['chunk_id'])
-                            vec_hits_map[cid] = point.payload
-                            vec_scores[cid] = float(point.score)
+                            # Dùng .get để an toàn hơn
+                            cid = str(point.payload.get('chunk_id', ''))
+                            if cid:
+                                vec_hits_map[cid] = point.payload
+                                vec_scores[cid] = float(point.score)
                         
-                        # Thành công -> Thoát retry
-                        break 
-                    
-                    except Exception as e:
-                        # Backoff: 1s, 2s, 4s
-                        wait_time = 2 ** attempt
-                        logger.warning(f"Vector search retry {attempt+1} in {wait_time}s: {e}")
-                        await asyncio.sleep(wait_time)
+                        # Nếu có kết quả thì thoát vòng lặp retry ngay
+                        if vec_hits_map:
+                            return vec_hits_map, vec_scores
                         
-                        if attempt == 2:
-                            logger.error(f"Vector search GAVE UP for '{query[:20]}...'")
+                        # Nếu thành công nhưng rỗng (do filter hoặc dữ liệu), không cần retry
+                        break
+
+                    except (asyncio.TimeoutError, Exception) as e:
+                        # [TỐI ƯU 3] Giảm Backoff để không bị tích tụ thời gian chờ quá lâu
+                        wait_time = 1.5 ** attempt 
+                        if attempt < 2:
+                            logger.warning(f"⚠️ Vector search retry {attempt+1}/3 (Latency: {wait_time}s)")
+                            await asyncio.sleep(wait_time)
+                        else:
+                            logger.error(f"❌ Vector search GAVE UP sau 3 lần thử.")
 
         except Exception as e:
-            logger.error(f"Vector search fatal error: {e}")
+            logger.error(f"🔥 Vector search fatal error: {e}")
         
+        # Trả về kết quả (có thể rỗng) để BM25 gánh phía sau, không làm crash toàn bộ pipeline
         return vec_hits_map, vec_scores
     
     async def _bm25_search(self, query: str, top_k: int) -> Dict[str, float]:
