@@ -421,25 +421,57 @@ python main.py
 
 ## 🐳 Docker Deployment Guide (For Judges)
 
-The system is fully containerized using Docker to ensure **consistency** and **reproducibility** across all execution environments.
+The system is fully containerized using **Docker** to ensure **consistency** and **reproducibility** across the judging environment.
 
 ---
 
-## 1️⃣ Environment Variable Configuration (Credentials)
+### 1️⃣ Environment Variable Configuration
 
-To run the system with the official judging API infrastructure, please update the credentials in the `.env` file located at the project root  
-(or create a new one using the template below):
+The system reads all credentials directly from **runtime environment variables**, ensuring secure execution without embedding sensitive information inside the container image.
+
+#### Required Environment Variables
+
+- `VNPT_API_URL`  
+  Endpoint for the VNPT LLM API
+
+- `VNPT_ACCESS_TOKEN`  
+  Authorization token
+
+- `VNPT_LARGE_ID` / `VNPT_LARGE_KEY`  
+  Credentials for the **Large** model
+
+- `VNPT_SMALL_ID` / `VNPT_SMALL_KEY`  
+  Credentials for the **Small** model
+
+---
+
+### 2️⃣ Running the Container (Standard Evaluation)
+
+To execute the inference pipeline, run the container with the required environment variables and mount the input data directory.
 
 ```bash
-# VNPT LLM API Configuration
-VNPT_API_URL=https://api-gateway.vnpt.vn/v1
-VNPT_ACCESS_TOKEN=your_new_access_token_here
-VNPT_EMBEDDING_URL=https://api-gateway.vnpt.vn/v1
+sudo docker run --gpus all \
+  -e VNPT_API_URL="https://api-gateway.vnpt.vn/v1" \
+  -e VNPT_ACCESS_TOKEN="your_access_token" \
+  -e VNPT_LARGE_ID="your_large_id" \
+  -e VNPT_LARGE_KEY="your_large_key" \
+  -e VNPT_SMALL_ID="your_small_id" \
+  -e VNPT_SMALL_KEY="your_small_key" \
+  -v /path/to/local_data:/code/data_input \
+  quanninja1304/vnpt-submission:final
+```
+### Runtime Notes
 
-# Model-Specific Credentials (ID & Key per model)
-# Example configuration for Large and Small models
-VNPT_LARGE_ID=your_large_token_id
-VNPT_LARGE_KEY=your_large_token_key
-VNPT_SMALL_ID=your_small_token_id
-VNPT_SMALL_KEY=your_small_token_key
+#### GPU Acceleration
+- The container is built on **CUDA 12.2**, enabling GPU-accelerated inference for high-throughput and low-latency execution.
+
+#### Data Input
+- The system automatically reads the evaluation file from:
+```text
+/code/private_test.json
+```
+#### Output Artifacts
+- Final prediction results are generated at:
+```text
+/code/submission.csv
 ```
